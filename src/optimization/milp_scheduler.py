@@ -72,6 +72,23 @@ class MaintenanceScheduler:
         print(f"\n[MILP] Scheduling {n_machines} machines across {n_time_slots} time slots")
         print(f"[MILP] Max crews: {self.n_crews}")
 
+        # Handle empty input
+        if n_machines == 0:
+            empty_schedule = pd.DataFrame(columns=[
+                "machine_id", "machine_name", "failure_risk", "risk_level",
+                "risk_color", "is_scheduled", "scheduled_slot", "estimated_cost"
+            ])
+            return {
+                "schedule": empty_schedule,
+                "total_cost": 0.0,
+                "summary": {
+                    "total_machines": 0, "scheduled": 0, "not_scheduled": 0,
+                    "critical": 0, "elevated": 0, "normal": 0,
+                    "total_cost": 0.0, "status": "Optimal",
+                },
+                "status": "Optimal",
+            }
+
         # =====================================================================
         # Problem Definition
         # =====================================================================

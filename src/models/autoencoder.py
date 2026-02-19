@@ -162,7 +162,7 @@ class AutoencoderTrainer:
         self.batch_size = batch_size or config.AE_BATCH_SIZE
         self.optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, patience=5, factor=0.5, verbose=True
+            self.optimizer, patience=5, factor=0.5
         )
         self.criterion = nn.MSELoss()
         self.train_history = []
@@ -273,7 +273,7 @@ class AutoencoderTrainer:
 def load_autoencoder(filepath=None):
     """Load a trained autoencoder."""
     filepath = filepath or os.path.join(config.MODELS_DIR, "autoencoder.pt")
-    checkpoint = torch.load(filepath, map_location=config.DEVICE)
+    checkpoint = torch.load(filepath, map_location=config.DEVICE, weights_only=False)
 
     model = LSTMAutoencoder(
         input_dim=checkpoint["input_dim"],

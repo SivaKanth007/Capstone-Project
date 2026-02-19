@@ -94,7 +94,7 @@ class PredictorTrainer:
         self.batch_size = batch_size or config.PRED_BATCH_SIZE
         self.optimizer = torch.optim.Adam(model.parameters(), lr=self.lr, weight_decay=1e-5)
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, patience=5, factor=0.5, verbose=True
+            self.optimizer, patience=5, factor=0.5
         )
         self.train_history = []
         self.val_history = []
@@ -224,7 +224,7 @@ class PredictorTrainer:
 def load_predictor(filepath=None):
     """Load a trained predictor."""
     filepath = filepath or os.path.join(config.MODELS_DIR, "lstm_predictor.pt")
-    checkpoint = torch.load(filepath, map_location=config.DEVICE)
+    checkpoint = torch.load(filepath, map_location=config.DEVICE, weights_only=False)
 
     model = LSTMPredictor(
         input_dim=checkpoint["input_dim"],

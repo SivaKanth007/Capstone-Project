@@ -18,7 +18,7 @@ def sample_data():
     """Create minimal C-MAPSS-like data for testing."""
     np.random.seed(42)
     rows = []
-    for unit_id in range(1, 6):
+    for unit_id in range(1, 11):
         n_cycles = np.random.randint(50, 150)
         for cycle in range(1, n_cycles + 1):
             row = {"unit_id": unit_id, "cycle": cycle}

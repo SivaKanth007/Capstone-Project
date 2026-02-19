@@ -88,7 +88,7 @@ class DataPreprocessor:
         missing_before = df.isnull().sum().sum()
         if missing_before > 0:
             df = df.groupby("unit_id", group_keys=False).apply(
-                lambda g: g.fillna(method="ffill").fillna(method="bfill")
+                lambda g: g.ffill().bfill()
             )
             missing_after = df.isnull().sum().sum()
             print(f"[PREPROCESS] Filled {missing_before - missing_after} missing values")

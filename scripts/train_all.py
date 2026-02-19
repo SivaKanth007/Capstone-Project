@@ -45,12 +45,15 @@ def main():
     print("STEP 1: DATA DOWNLOAD")
     print("=" * 70)
 
-    if not any(f.endswith('.txt') or f.endswith('.csv')
-               for f in os.listdir(config.RAW_DATA_DIR) if os.path.isfile(os.path.join(config.RAW_DATA_DIR, f))):
+    os.makedirs(config.RAW_DATA_DIR, exist_ok=True)
+    existing_data = [f for f in os.listdir(config.RAW_DATA_DIR)
+                     if os.path.isfile(os.path.join(config.RAW_DATA_DIR, f))
+                     and (f.endswith('.txt') or f.endswith('.csv'))]
+    if not existing_data:
         print("[TRAIN] Downloading C-MAPSS dataset...")
         download_cmapss()
     else:
-        print("[TRAIN] Data already downloaded, skipping...")
+        print(f"[TRAIN] Data already downloaded ({len(existing_data)} files), skipping...")
 
     df_train = load_cmapss_train()
 
