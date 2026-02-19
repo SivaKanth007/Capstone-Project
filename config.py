@@ -28,7 +28,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"[CONFIG] Using device: {DEVICE}")
 if torch.cuda.is_available():
     print(f"[CONFIG] GPU: {torch.cuda.get_device_name(0)}")
-    print(f"[CONFIG] VRAM: {torch.cuda.get_device_properties(0).total_mem / 1e9:.1f} GB")
+    props = torch.cuda.get_device_properties(0)
+    vram = getattr(props, 'total_memory', getattr(props, 'total_mem', 0))
+    print(f"[CONFIG] VRAM: {vram / 1e9:.1f} GB")
 
 # =============================================================================
 # C-MAPSS Dataset Configuration
