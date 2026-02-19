@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.env/
+env/
+
+# Data (large files)
+data/raw/
+data/processed/
+data/synthetic/
+
+# Model checkpoints
+models/saved/*.pt
+models/saved/*.pkl
+models/saved/*.json
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kaggle
+kaggle.json
+
+# Temp files
+*.tmp
+pdf_text.txt
+ppt_text.txt
+extract_pdf.py
