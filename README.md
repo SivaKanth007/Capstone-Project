@@ -47,7 +47,7 @@ This single command does everything:
 - Trains 4 ML models (LSTM Autoencoder, LSTM Predictor, XGBoost, Bayesian Survival)
 - Runs Monte Carlo simulation comparing maintenance policies
 
-**⏱ Takes ~5 minutes on CPU.**
+**⏱ Takes ~5 minutes on CPU. Using the NVIDIA RTX 3050 Ti Laptop GPU it completes significantly faster!**
 
 ### Step 4 — Run Inference Pipeline
 

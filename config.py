@@ -108,6 +108,9 @@ XGB_PARAMS = {
     "reg_lambda": 1.0,
     "random_state": 42,
 }
+if torch.cuda.is_available():
+    XGB_PARAMS["device"] = "cuda"
+    XGB_PARAMS["tree_method"] = "hist"
 
 # =============================================================================
 # Bayesian Survival Analysis

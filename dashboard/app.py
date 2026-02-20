@@ -411,7 +411,15 @@ def main():
     )
 
     st.sidebar.markdown("---")
-    st.sidebar.caption(f"📍 Device: {config.DEVICE}")
+    import torch
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        props = torch.cuda.get_device_properties(0)
+        vram = getattr(props, 'total_memory', getattr(props, 'total_mem', 0))
+        st.sidebar.caption(f"📍 Device: **{config.DEVICE}**")
+        st.sidebar.caption(f"⚡ GPU: {gpu_name} ({vram / 1e9:.1f} GB VRAM)")
+    else:
+        st.sidebar.caption(f"📍 Device: {config.DEVICE}")
     st.sidebar.caption("FSE 570 Capstone Project")
     st.sidebar.caption("Arizona State University")
 

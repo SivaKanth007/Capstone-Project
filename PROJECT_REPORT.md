@@ -338,7 +338,7 @@ The training pipeline (`scripts/train_all.py`) executes 9 sequential steps:
 
 *\*Approximate times on CPU (Intel Core i7). GPU training is ~5–10× faster.*
 
-**Total training time:** ~5 minutes on CPU.
+**Total training time:** ~5 minutes on CPU. Using the NVIDIA RTX 3050 Ti Laptop GPU it completes significantly faster!
 
 ### 6.3 Inference Pipeline
 
