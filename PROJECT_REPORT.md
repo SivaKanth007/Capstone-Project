@@ -503,15 +503,41 @@ These tools enable reliability engineers to validate model predictions and ident
 
 ## 10. Interactive Dashboard
 
-A Streamlit-based dashboard (`dashboard/app.py`) provides real-time fleet monitoring with:
+A Streamlit-based dashboard (`dashboard/app.py`) provides real-time fleet monitoring across 5 pages. Launch with:
 
-- **Fleet health overview** — Aggregated risk scores across all monitored machines
-- **Individual machine drill-down** — Sensor time series, anomaly scores, failure probabilities
-- **Maintenance schedule view** — MILP-optimized schedule with Gantt chart visualization
-- **Risk trend analysis** — Historical risk evolution per machine
-- **Model performance monitoring** — Live metrics and model health indicators
+```bash
+streamlit run dashboard/app.py
+```
 
-**Launch:** `streamlit run dashboard/app.py`
+### 10.1 Fleet Overview
+
+Displays aggregated fleet health: total machines monitored, near-failure sample count, average RUL, and healthy sample count — plus a RUL distribution histogram and per-unit health status bar chart.
+
+![Fleet Overview](assets/dashboard_fleet_overview.png)
+
+### 10.2 Risk Assessment
+
+Shows per-machine failure risk categorized into Critical / Elevated / Normal with a color-coded interactive table and risk distribution pie chart.
+
+![Risk Assessment](assets/dashboard_risk_assessment.png)
+
+### 10.3 Maintenance Schedule
+
+Visualizes the MILP optimizer output as an interactive **Gantt chart** showing scheduled maintenance time slots for each machine, backed by a detailed table with risk score, urgency action, and assigned slot.
+
+![Maintenance Schedule](assets/dashboard_maintenance_schedule.png)
+
+### 10.4 Maintenance History
+
+Displays historical maintenance logs: total events, total cost, average downtime hours, cost breakdown by failure type (bar chart), and planned vs unplanned ratio (pie chart).
+
+![Maintenance History](assets/dashboard_maintenance_history.png)
+
+### 10.5 Operational Context
+
+Provides fleet composition by machine type and priority level, a bubble scatter plot of total cycles vs operating temperature, and a full machine specifications table.
+
+![Operational Context](assets/dashboard_operational_context.png)
 
 ---
 
