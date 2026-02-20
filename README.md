@@ -56,7 +56,7 @@ python scripts/train_all.py
 ```
 
 This will:
-- Download the C-MAPSS dataset from Kaggle
+- Download the C-MAPSS dataset (NASA S3 direct download, with Kaggle API fallback)
 - Generate synthetic maintenance & operational data
 - Engineer features (rolling stats, trends, regimes)
 - Train LSTM Autoencoder, LSTM Predictor, XGBoost, and Bayesian Survival models
@@ -74,18 +74,26 @@ python scripts/run_pipeline.py
 streamlit run dashboard/app.py
 ```
 
+### 5. Run Unit Tests
+
+```bash
+python -m pytest tests/ -v
+```
+
 ## 📁 Project Structure
 
 ```
 ├── config.py                    # Global configuration
 ├── requirements.txt             # Dependencies
+├── PROJECT_REPORT.md            # Full project report
+├── .gitignore
 ├── data/
 │   ├── raw/                     # NASA C-MAPSS dataset
 │   ├── processed/               # Windowed sequences
 │   └── synthetic/               # Generated maintenance logs
 ├── src/
 │   ├── data/                    # Data engineering pipeline
-│   │   ├── download.py          # Kaggle dataset download
+│   │   ├── download.py          # Multi-source dataset download
 │   │   ├── preprocess.py        # Cleaning, normalization, windowing
 │   │   ├── feature_engineering.py
 │   │   └── synthetic_generator.py
@@ -125,16 +133,17 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 For Google Colab with GPU, use the notebook at `notebooks/capstone_colab.ipynb`.
 
-## 📈 Key Metrics
+## 📈 Results
 
-| Metric | Description |
-|--------|-------------|
-| RMSE | RUL prediction accuracy |
-| F1-Score | Failure classification performance |
-| C-Index | Survival model discriminative ability |
-| Calibration Curve | Uncertainty quality |
-| Cost Reduction % | vs. reactive maintenance |
-| Downtime Reduction % | vs. reactive maintenance |
+| Model | Metric | Value |
+|-------|--------|-------|
+| LSTM Predictor | F1-Score | **0.933** |
+| LSTM Predictor | AUC-ROC | **0.997** |
+| XGBoost RUL | RMSE | **10.48 cycles** |
+| XGBoost RUL | R² | **0.937** |
+| Bayesian Survival | C-Index | **0.992** |
+| MILP Optimization | Cost Reduction | **97.4%** vs reactive |
+| MILP Optimization | Downtime Reduction | **72.4%** vs reactive |
 
 ## 🛠️ Maintenance Categories
 

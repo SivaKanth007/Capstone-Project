@@ -214,9 +214,9 @@ class MaintenanceSimulator:
             "n_preventive": ["mean"],
         }).round(2)
 
-        print(f"\n{'─' * 70}")
+        print(f"\n{'-' * 70}")
         print("SIMULATION RESULTS (averaged over simulations)")
-        print(f"{'─' * 70}")
+        print(f"{'-' * 70}")
         print(summary.to_string())
 
         # Improvement stats
@@ -228,7 +228,7 @@ class MaintenanceSimulator:
         optimized_downtime = df[df["policy"] == "Optimized (Risk-Based)"]["total_downtime_hours"].mean()
         downtime_reduction = (1 - optimized_downtime / reactive_downtime) * 100
 
-        print(f"\n📊 Optimized vs Reactive:")
+        print(f"\n[RESULTS] Optimized vs Reactive:")
         print(f"  Cost reduction:     {cost_reduction:.1f}%")
         print(f"  Downtime reduction: {downtime_reduction:.1f}%")
 

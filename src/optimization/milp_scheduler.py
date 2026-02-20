@@ -241,7 +241,7 @@ class MaintenanceScheduler:
         # Critical
         critical = df[df["risk_level"] == "Service Immediately"]
         if len(critical) > 0:
-            print("\n🔴 SERVICE IMMEDIATELY:")
+            print("\n[!!] SERVICE IMMEDIATELY:")
             for _, row in critical.iterrows():
                 slot = f"Slot {row['scheduled_slot']}" if row['is_scheduled'] else "UNSCHEDULED!"
                 print(f"   {row['machine_name']:20s} | Risk: {row['failure_risk']:.2%} | {slot}")
@@ -249,7 +249,7 @@ class MaintenanceScheduler:
         # Elevated
         elevated = df[df["risk_level"] == "Schedule Soon"]
         if len(elevated) > 0:
-            print("\n🟡 SCHEDULE SOON:")
+            print("\n[!] SCHEDULE SOON:")
             for _, row in elevated.iterrows():
                 slot = f"Slot {row['scheduled_slot']}" if row['is_scheduled'] else "Not scheduled"
                 print(f"   {row['machine_name']:20s} | Risk: {row['failure_risk']:.2%} | {slot}")
@@ -257,9 +257,9 @@ class MaintenanceScheduler:
         # Normal
         normal = df[df["risk_level"] == "Continue Monitoring"]
         if len(normal) > 0:
-            print(f"\n🟢 CONTINUE MONITORING: {len(normal)} machines")
+            print(f"\n[OK] CONTINUE MONITORING: {len(normal)} machines")
 
-        print(f"\n{'─' * 70}")
+        print(f"\n{'-' * 70}")
         print(f"Summary: {summary['scheduled']}/{summary['total_machines']} scheduled | "
               f"Est. cost: ${summary['total_cost']:,.0f}")
         print(f"Risk breakdown: {summary['critical']} critical, "
