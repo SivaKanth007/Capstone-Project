@@ -85,7 +85,7 @@ class MaintenanceSimulator:
                     total_downtime += self.downtime_per_failure
                     failures += 1
 
-        availability = 1 - (total_downtime / (self.n_machines * self.n_periods * 24)) * 100
+        availability = (1 - total_downtime / (self.n_machines * self.n_periods * 24)) * 100
         return {
             "policy": "Reactive",
             "total_cost": total_cost,
@@ -122,7 +122,7 @@ class MaintenanceSimulator:
                     failures += 1
                     health[m, t:] = np.minimum(health[m, t:] + 0.8, 1)
 
-        availability = 1 - (total_downtime / (self.n_machines * self.n_periods * 24)) * 100
+        availability = (1 - total_downtime / (self.n_machines * self.n_periods * 24)) * 100
         return {
             "policy": "Scheduled (every 30)",
             "total_cost": total_cost,
@@ -163,7 +163,7 @@ class MaintenanceSimulator:
                     failures += 1
                     health[m, t:] = np.minimum(health[m, t:] + 0.8, 1)
 
-        availability = 1 - (total_downtime / (self.n_machines * self.n_periods * 24)) * 100
+        availability = (1 - total_downtime / (self.n_machines * self.n_periods * 24)) * 100
         return {
             "policy": "Optimized (Risk-Based)",
             "total_cost": total_cost,

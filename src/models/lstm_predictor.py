@@ -49,13 +49,12 @@ class LSTMPredictor(nn.Module):
             nn.Linear(self.hidden_dim // 2, 1),
         )
 
-        # Classification head
+        # Classification head (outputs raw logits — sigmoid applied by BCEWithLogitsLoss)
         self.classifier = nn.Sequential(
             nn.Linear(self.hidden_dim, self.hidden_dim // 2),
             nn.ReLU(),
             nn.Dropout(self.dropout),
             nn.Linear(self.hidden_dim // 2, 1),
-            nn.Sigmoid(),
         )
 
         self.input_dim = input_dim
@@ -71,16 +70,17 @@ class LSTMPredictor(nn.Module):
         # Weighted sum of LSTM outputs
         context = torch.sum(lstm_out * attn_weights, dim=1)  # (batch, hidden_dim)
 
-        # Classification
-        output = self.classifier(context)  # (batch, 1)
-        return output.squeeze(-1), attn_weights.squeeze(-1)
+        # Classification (raw logits)
+        logits = self.classifier(context)  # (batch, 1)
+        return logits.squeeze(-1), attn_weights.squeeze(-1)
 
     def predict_proba(self, x):
         """Get failure probability for input sequences."""
         self.eval()
         with torch.no_grad():
             x = x.to(config.DEVICE)
-            proba, attn = self.forward(x)
+            logits, attn = self.forward(x)
+            proba = torch.sigmoid(logits)
             return proba.cpu().numpy(), attn.cpu().numpy()
 
 
@@ -114,9 +114,6 @@ class PredictorTrainer:
         pos_weight = torch.tensor([neg_count / max(pos_count, 1)]).to(config.DEVICE)
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-        # Actually we use BCE since we already have sigmoid, so use weight differently
-        criterion = nn.BCELoss(reduction='none')
-
         train_tensor_x = torch.FloatTensor(X_train)
         train_tensor_y = torch.FloatTensor(y_train)
         train_loader = DataLoader(
@@ -133,11 +130,10 @@ class PredictorTrainer:
 
         best_val_f1 = 0
         best_state = None
-        weight_pos = neg_count / max(pos_count, 1)
 
         print(f"\n[PREDICTOR] Training on {config.DEVICE} "
               f"({len(X_train)} samples, pos_rate={pos_count/len(y_train):.2%})")
-        print(f"[PREDICTOR] Positive weight: {weight_pos:.2f}")
+        print(f"[PREDICTOR] Positive weight: {pos_weight.item():.2f}")
 
         for epoch in range(self.epochs):
             # Training
@@ -147,12 +143,8 @@ class PredictorTrainer:
                 batch_x = batch_x.to(config.DEVICE)
                 batch_y = batch_y.to(config.DEVICE)
 
-                proba, _ = self.model(batch_x)
-                loss_per_sample = criterion(proba, batch_y)
-
-                # Apply class weights
-                weights = torch.where(batch_y == 1, weight_pos, 1.0)
-                loss = (loss_per_sample * weights).mean()
+                logits, _ = self.model(batch_x)
+                loss = criterion(logits, batch_y)
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -194,7 +186,8 @@ class PredictorTrainer:
         with torch.no_grad():
             for batch_x, _ in loader:
                 batch_x = batch_x.to(config.DEVICE)
-                proba, _ = self.model(batch_x)
+                logits, _ = self.model(batch_x)
+                proba = torch.sigmoid(logits)
                 all_proba.extend(proba.cpu().numpy())
 
         y_proba = np.array(all_proba)

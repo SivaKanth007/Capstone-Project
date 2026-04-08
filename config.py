@@ -139,3 +139,47 @@ RISK_LEVELS = {
 # Random Seed
 # =============================================================================
 RANDOM_SEED = 42
+
+# =============================================================================
+# IMS Bearing Dataset Configuration
+# =============================================================================
+IMS_DATASET = "vinayak123tyagi/bearing-dataset"  # Kaggle dataset identifier
+IMS_RAW_DIR = os.path.join(DATA_DIR, "raw_ims")
+IMS_PROCESSED_DIR = os.path.join(DATA_DIR, "processed_ims")
+
+# Ensure IMS directories exist
+for d in [IMS_RAW_DIR, IMS_PROCESSED_DIR]:
+    os.makedirs(d, exist_ok=True)
+
+IMS_SAMPLING_RATE = 20480        # 20 kHz, 1-second snapshots → 20,480 points
+IMS_SNAPSHOT_LENGTH = 20480      # Data points per snapshot file
+
+IMS_EXPERIMENTS = {
+    1: {
+        "channels": 8,  # 2 per bearing (X + Y axis)
+        "bearings": 4,
+        "failed_bearings": [3, 4],
+        "failure_modes": ["inner_race", "roller_element"],
+        "folder": "1st_test",
+    },
+    2: {
+        "channels": 4,  # 1 per bearing
+        "bearings": 4,
+        "failed_bearings": [1],
+        "failure_modes": ["outer_race"],
+        "folder": "2nd_test",
+    },
+    3: {
+        "channels": 4,  # 1 per bearing
+        "bearings": 4,
+        "failed_bearings": [3],
+        "failure_modes": ["outer_race"],
+        "folder": "3rd_test",
+    },
+}
+
+# IMS preprocessing hyperparameters
+IMS_MAX_RUL = 500               # Cap pseudo-RUL at 500 snapshots
+IMS_SEQUENCE_LENGTH = 50        # Sliding window for LSTM (50 snapshots)
+IMS_FFT_BANDS = 5               # Frequency bands for spectral energy
+IMS_ROLLING_WINDOWS = [10, 50, 100]  # Rolling windows for trend features

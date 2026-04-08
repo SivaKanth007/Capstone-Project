@@ -77,11 +77,13 @@ class TestLSTMPredictor:
         X, _, _ = sample_sequences
         model = LSTMPredictor(input_dim=X.shape[2])
         x_tensor = torch.FloatTensor(X[:5])
-        proba, attn = model(x_tensor)
+        logits, attn = model(x_tensor)
 
-        assert proba.shape == (5,)
+        assert logits.shape == (5,)
         assert attn.shape == (5, X.shape[1])
-        assert torch.all(proba >= 0) and torch.all(proba <= 1)
+        # Attention weights should sum to ~1 (softmax)
+        attn_sums = attn.sum(dim=1)
+        assert torch.allclose(attn_sums, torch.ones(5), atol=1e-5)
 
     def test_predict_proba(self, sample_sequences):
         X, _, _ = sample_sequences

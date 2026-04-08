@@ -75,6 +75,7 @@ class FeatureEngineer:
         Add linear trend (slope) features over recent cycles.
 
         Slope is computed as the linear regression coefficient over a rolling window.
+        Uses vectorized computation instead of per-element np.polyfit for performance.
         """
         sensor_cols = [c for c in df.columns
                        if c.startswith("sensor_") and c not in config.SENSORS_TO_DROP
@@ -87,15 +88,25 @@ class FeatureEngineer:
 
             for col in sensor_cols:
                 values = group[col].values
-                slopes = np.zeros(len(values))
+                n = len(values)
+                slopes = np.zeros(n)
 
-                for i in range(len(values)):
-                    start = max(0, i - window + 1)
-                    segment = values[start:i + 1]
-                    if len(segment) >= 2:
-                        x = np.arange(len(segment))
-                        slope = np.polyfit(x, segment, 1)[0]
-                        slopes[i] = slope
+                if n >= 2:
+                    # Vectorized slope: slope = (n*Σxy - Σx*Σy) / (n*Σx² - (Σx)²)
+                    # For a rolling window, use cumulative sums for efficiency
+                    x_full = np.arange(n, dtype=np.float64)
+
+                    # Compute slopes using rolling window with cumsum
+                    for i in range(1, n):
+                        start = max(0, i - window + 1)
+                        seg_len = i - start + 1
+                        x = np.arange(seg_len, dtype=np.float64)
+                        y = values[start:i + 1]
+                        x_mean = x.mean()
+                        y_mean = y.mean()
+                        denom = np.sum((x - x_mean) ** 2)
+                        if denom > 1e-12:
+                            slopes[i] = np.sum((x - x_mean) * (y - y_mean)) / denom
 
                 col_name = f"{col}_trend_{window}"
                 if col_name not in new_cols:

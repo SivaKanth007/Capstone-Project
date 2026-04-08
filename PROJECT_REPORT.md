@@ -100,7 +100,22 @@ The **Commercial Modular Aero-Propulsion System Simulation (C-MAPSS)** dataset p
 
 **Operational condition:** Single operating condition, single fault mode (HPC degradation).
 
-### 3.2 Supplementary Data
+### 3.2 NASA IMS Bearing Dataset
+
+The **Intelligent Maintenance Systems (IMS) Bearing Dataset** provides accelerated bearing degradation data from the University of Cincinnati/NASA.
+
+| Attribute | Value |
+|-----------|-------|
+| Source | NASA IMS Center / Kaggle (`vinayak123tyagi/bearing-dataset`) |
+| Experiments | 3 (outer race, inner race, roller element failures) |
+| Sensors | 4–8 accelerometers per experiment |
+| Sampling rate | 20,480 Hz |
+| Snapshots | 984 (Exp 2), 2,156 (Exp 1), 6,324 (Exp 3) |
+| Download | Automated via `kagglehub` (~2 GB) |
+
+The IMS dataset enables validation of the system on real vibration signals, complementing the C-MAPSS sensor telemetry. Feature extraction includes RMS, peak, crest factor, kurtosis, FFT band energy, and rolling trend features.
+
+### 3.3 Supplementary Data
 
 Two additional synthetic datasets were generated to create a realistic industrial context:
 
@@ -181,11 +196,12 @@ The system follows a **five-stage pipeline** from raw sensor data to maintenance
 ├── dashboard/
 │   └── app.py                    # Streamlit interactive dashboard
 ├── notebooks/
-│   └── capstone_colab.ipynb      # Google Colab notebook (GPU)
-└── tests/                        # Unit tests (27 tests, 3 modules)
+│   └── Smart_Industrial_Maintenance_Full_Pipeline.ipynb  # IMS bearing pipeline
+└── tests/                        # Unit tests (4 modules)
     ├── test_preprocess.py
     ├── test_models.py
-    └── test_optimizer.py
+    ├── test_optimizer.py
+    └── test_ims.py
 ```
 
 **Total:** 18 source modules, ~120KB of production Python code.
@@ -317,6 +333,7 @@ Subject to:
 | Visualization | Matplotlib, Seaborn, Plotly |
 | Dashboard | Streamlit |
 | Data processing | pandas, NumPy, scikit-learn |
+| Dataset download | kagglehub (IMS), direct URL (C-MAPSS) |
 | Version control | Git |
 | GPU support | CUDA (automatic detection) |
 
@@ -598,6 +615,8 @@ Most importantly, the system bridges the critical gap between *failure predictio
 4. **Real-time inference** — Deploy as a microservice with sub-second inference latency
 5. **Real-world validation** — Partner with manufacturing facilities for pilot deployment with actual maintenance data
 6. **Reinforcement learning** — Explore RL-based scheduling to learn optimal policies from historical maintenance outcomes
+
+> **Note:** IMS Bearing Dataset integration has been completed — the full pipeline notebook (`Smart_Industrial_Maintenance_Full_Pipeline.ipynb`) trains all 4 models on real vibration data from NASA IMS bearing experiments.
 
 ---
 

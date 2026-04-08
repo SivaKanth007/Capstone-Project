@@ -15,6 +15,7 @@ env/
 
 # Data (large files)
 data/raw/
+data/raw_ims/
 data/processed/
 data/synthetic/
 
@@ -22,6 +23,7 @@ data/synthetic/
 models/saved/*.pt
 models/saved/*.pkl
 models/saved/*.json
+models/saved/*.png
 
 # Jupyter
 .ipynb_checkpoints/
@@ -37,8 +39,9 @@ Thumbs.db
 # Kaggle
 kaggle.json
 
-# Temp files
+# Cache
+.pytest_cache/
+
+# Temp / generated files
 *.tmp
-pdf_text.txt
-ppt_text.txt
-extract_pdf.py
+*.log

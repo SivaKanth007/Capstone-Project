@@ -2,7 +2,7 @@
 
 > **FSE 570 Data Science Capstone** — Arizona State University
 
-An end-to-end AI system that detects anomalies in industrial sensors, predicts machine failures, and generates optimized maintenance schedules.
+An end-to-end AI system that detects anomalies in industrial sensors, predicts machine failures, and generates optimized maintenance schedules. Supports both the **NASA C-MAPSS turbofan** dataset and the **NASA IMS Bearing** vibration dataset.
 
 ## 👥 Team
 
@@ -21,7 +21,7 @@ An end-to-end AI system that detects anomalies in industrial sensors, predicts m
 ### Step 1 — Clone the Repository
 
 ```bash
-git clone https://github.com/<your-username>/Capstone-Project.git
+git clone https://github.com/SivaKanth007/Capstone-Project.git
 cd Capstone-Project
 ```
 
@@ -48,6 +48,14 @@ This single command does everything:
 - Runs Monte Carlo simulation comparing maintenance policies
 
 **⏱ Takes ~5 minutes on CPU. Using the NVIDIA RTX 3050 Ti Laptop GPU it completes significantly faster!**
+
+### Step 3b — Run IMS Bearing Pipeline (Notebook)
+
+Open `notebooks/Smart_Industrial_Maintenance_Full_Pipeline.ipynb` in Jupyter and run all cells. This pipeline:
+- Downloads the NASA IMS Bearing vibration dataset (~2 GB) via `kagglehub`
+- Extracts time-domain and frequency-domain features from raw vibration signals
+- Trains the same 4-model suite on bearing degradation data
+- Runs MILP scheduling and Monte Carlo simulation
 
 ### Step 4 — Run Inference Pipeline
 
@@ -116,7 +124,8 @@ Capstone-Project/
 ├── PROJECT_REPORT.md            # Full project report
 │
 ├── scripts/
-│   ├── train_all.py             # ← Run this first to train all models
+│   ├── train_all.py             # ← Run this first to train C-MAPSS models
+│   ├── train_ims.py             # IMS bearing model training
 │   └── run_pipeline.py          # ← Run this to get predictions
 │
 ├── dashboard/
@@ -124,25 +133,37 @@ Capstone-Project/
 │
 ├── src/
 │   ├── data/                    # Data download, preprocessing, features
+│   │   ├── download.py          # C-MAPSS dataset download
+│   │   ├── ims_download.py      # IMS bearing dataset download (kagglehub)
+│   │   ├── ims_preprocess.py    # IMS vibration signal preprocessing
+│   │   ├── preprocess.py        # C-MAPSS preprocessing
+│   │   ├── feature_engineering.py
+│   │   └── synthetic_generator.py
 │   ├── models/                  # LSTM, XGBoost, Bayesian Survival models
 │   ├── explainability/          # SHAP + attention visualization
 │   ├── optimization/            # MILP maintenance scheduler
 │   └── evaluation/              # Monte Carlo simulation
 │
-├── tests/                       # 27 unit tests
-├── notebooks/                   # Google Colab notebook (GPU version)
+├── tests/                       # Unit tests (4 modules)
+│
+├── notebooks/
+│   └── Smart_Industrial_Maintenance_Full_Pipeline.ipynb  # IMS bearing pipeline
 │
 ├── data/                        # Created automatically after training
-│   ├── raw/                     # Downloaded NASA C-MAPSS dataset
+│   ├── raw/                     # NASA C-MAPSS dataset
+│   ├── raw_ims/                 # NASA IMS Bearing dataset (3 experiments)
 │   ├── processed/               # Preprocessed sequences
 │   └── synthetic/               # Generated maintenance logs
 │
-├── models/saved/                # Trained model files (created after training)
-│   ├── autoencoder.pt
-│   ├── lstm_predictor.pt
-│   ├── xgboost_rul.pkl
-│   ├── bayesian_survival.pkl
-│   └── preprocessor.pkl
+├── models/saved/                # Trained model files
+│   ├── autoencoder.pt           # C-MAPSS LSTM Autoencoder
+│   ├── lstm_predictor.pt        # C-MAPSS LSTM Predictor
+│   ├── xgboost_rul.pkl          # C-MAPSS XGBoost RUL
+│   ├── bayesian_survival.pkl    # C-MAPSS Weibull Survival
+│   ├── preprocessor.pkl         # MinMaxScaler + features
+│   ├── ims_autoencoder.pt       # IMS LSTM Autoencoder
+│   ├── ims_xgboost.pkl          # IMS XGBoost RUL
+│   └── ims_survival.pkl         # IMS Weibull Survival
 │
 └── assets/                      # Dashboard screenshots
 ```
@@ -158,7 +179,7 @@ The system automatically uses a CUDA GPU if available:
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ```
 
-For Google Colab with free GPU, open `notebooks/capstone_colab.ipynb`.
+For the IMS Bearing pipeline, open `notebooks/Smart_Industrial_Maintenance_Full_Pipeline.ipynb`.
 
 ---
 
