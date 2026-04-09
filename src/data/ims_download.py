@@ -6,12 +6,10 @@ Supports Kaggle download with synthetic fallback.
 """
 
 import os
-import sys
 import zipfile
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 
@@ -121,7 +119,8 @@ def _generate_fallback_ims_data(output_dir):
             filepath = os.path.join(exp_path, filename)
 
             # Generate vibration data for each channel
-            data = np.zeros((1024, n_channels))  # Reduced from 20480 for dev speed
+            n_points = config.IMS_SNAPSHOT_LENGTH
+            data = np.zeros((n_points, n_channels))
             degradation_progress = snap_idx / n_snapshots
 
             for ch in range(n_channels):
@@ -132,9 +131,9 @@ def _generate_fallback_ims_data(output_dir):
                     bearing_id = ch + 1  # 1 channel per bearing
 
                 # Base vibration signal
-                t = np.linspace(0, 1, 1024)
+                t = np.linspace(0, 1, n_points)
                 base_freq = 100 + rng.normal(0, 5)
-                signal = rng.normal(0, 0.5, 1024)
+                signal = rng.normal(0, 0.5, n_points)
                 signal += np.sin(2 * np.pi * base_freq * t) * 0.3
 
                 # Add degradation for failed bearings
@@ -145,7 +144,7 @@ def _generate_fallback_ims_data(output_dir):
                     # Add impulse-like defect signals
                     n_impulses = int(deg_factor * 20)
                     for _ in range(n_impulses):
-                        pos = rng.integers(0, 1024)
+                        pos = rng.integers(0, n_points)
                         signal[pos] += rng.normal(0, deg_factor * 5)
 
                 data[:, ch] = signal
@@ -153,7 +152,7 @@ def _generate_fallback_ims_data(output_dir):
             # Save as tab-delimited (matching IMS format)
             np.savetxt(filepath, data, delimiter='\t', fmt='%.6f')
 
-        print(f"  → {exp_path}/ ({n_snapshots} files)")
+        print(f"  -> {exp_path}/ ({n_snapshots} files)")
 
 
 def load_ims_experiment(experiment=1, data_dir=None):

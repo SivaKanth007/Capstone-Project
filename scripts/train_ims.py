@@ -65,7 +65,7 @@ def main(experiment=2):
     print("=" * 70)
 
     preprocessor = IMSPreprocessor()
-    data, df_features = preprocessor.fit_transform(snapshots, channel_names, exp_info)
+    data, df_features, splits_df = preprocessor.fit_transform(snapshots, channel_names, exp_info)
     preprocessor.save()
 
     # Save processed data
@@ -100,17 +100,24 @@ def main(experiment=2):
     )
     ae_trainer = AutoencoderTrainer(autoencoder)
 
-    # Train on healthy data (high RUL)
-    healthy_mask = y_train_rul > config.IMS_MAX_RUL * 0.5
+    # Train on healthy data only (RUL above failure horizon — not near failure)
+    # Use failure horizon threshold, not a fraction of MAX_RUL, to avoid
+    # selecting ALL samples when RUL is clamped to MAX_RUL
+    healthy_threshold = config.PRED_FAILURE_HORIZON  # 30
+    healthy_mask = y_train_rul > healthy_threshold
     X_healthy = X_train[healthy_mask]
-    X_val_ae = X_val[y_val_rul > config.IMS_MAX_RUL * 0.5] if len(X_val) > 0 else None
+    X_val_ae = X_val[y_val_rul > healthy_threshold] if len(X_val) > 0 else None
 
-    if len(X_healthy) > 0:
-        print(f"[IMS TRAIN] Training autoencoder on {len(X_healthy)} healthy samples")
-        ae_trainer.train(X_healthy, X_val_ae if X_val_ae is not None and len(X_val_ae) > 0 else None)
-        ae_trainer.save_model(os.path.join(config.MODELS_DIR, "ims_autoencoder.pt"))
-    else:
-        print("[IMS TRAIN] Warning: No healthy samples found. Skipping autoencoder.")
+    if len(X_healthy) < 10:
+        print(f"[IMS TRAIN] Warning: Only {len(X_healthy)} healthy samples. "
+              "Using all training data for autoencoder.")
+        X_healthy = X_train
+        X_val_ae = X_val if len(X_val) > 0 else None
+
+    print(f"[IMS TRAIN] Training autoencoder on {len(X_healthy)} healthy samples "
+          f"(out of {len(X_train)} total, threshold RUL>{healthy_threshold})")
+    ae_trainer.train(X_healthy, X_val_ae if X_val_ae is not None and len(X_val_ae) > 0 else None)
+    ae_trainer.save_model(os.path.join(config.MODELS_DIR, "ims_autoencoder.pt"))
 
     # =========================================================================
     # Step 4: Train LSTM Failure Predictor
@@ -122,7 +129,7 @@ def main(experiment=2):
     predictor = LSTMPredictor(input_dim=n_features)
     pred_trainer = PredictorTrainer(predictor)
     pred_trainer.train(X_train, y_train_binary, X_val, y_val_binary)
-    pred_trainer.save_model(os.path.join(config.MODELS_DIR, "ims_lstm_predictor.pt"))
+    pred_trainer.save_model(os.path.join(config.MODELS_DIR, "ims_predictor.pt"))
 
     # =========================================================================
     # Step 5: Train XGBoost RUL (Tabular features)
@@ -131,24 +138,20 @@ def main(experiment=2):
     print("STEP 5: XGBOOST RUL (Bearing Remaining Life)")
     print("=" * 70)
 
-    # Use flat features from df_features
+    # Use flat features from the SAME split as sequences (via splits_df)
     exclude_cols = ["file_index", "unit_id", "RUL"]
-    feature_cols = [c for c in df_features.columns if c not in exclude_cols]
+    feature_cols = [c for c in splits_df["train"].columns if c not in exclude_cols]
 
-    n = len(df_features)
-    n_train_flat = int(n * config.TRAIN_RATIO)
-    n_val_flat = int(n * config.VAL_RATIO)
-
-    X_train_xgb = df_features.iloc[:n_train_flat][feature_cols]
-    y_train_xgb = df_features.iloc[:n_train_flat]["RUL"]
-    X_val_xgb = df_features.iloc[n_train_flat:n_train_flat + n_val_flat][feature_cols]
-    y_val_xgb = df_features.iloc[n_train_flat:n_train_flat + n_val_flat]["RUL"]
+    X_train_xgb = splits_df["train"][feature_cols]
+    y_train_xgb = splits_df["train"]["RUL"]
+    X_val_xgb = splits_df["val"][feature_cols]
+    y_val_xgb = splits_df["val"]["RUL"]
 
     xgb_model = XGBoostRUL()
     xgb_model.train(X_train_xgb, y_train_xgb.values, X_val_xgb, y_val_xgb.values,
                      feature_names=feature_cols)
     xgb_model.evaluate(X_val_xgb, y_val_xgb.values)
-    xgb_model.save(os.path.join(config.MODELS_DIR, "ims_xgboost_rul.pkl"))
+    xgb_model.save(os.path.join(config.MODELS_DIR, "ims_xgboost.pkl"))
 
     # =========================================================================
     # Step 6: Bayesian Survival Analysis
@@ -157,16 +160,16 @@ def main(experiment=2):
     print("STEP 6: BAYESIAN SURVIVAL ANALYSIS (Bearing Lifetime)")
     print("=" * 70)
 
-    # Use RMS features + RUL for survival analysis
-    rms_cols = [c for c in df_features.columns if c.endswith("_rms")]
+    # Use RMS features + RUL for survival analysis (from same split)
+    rms_cols = [c for c in splits_df["train"].columns if c.endswith("_rms")]
     if rms_cols:
         survival_cols = rms_cols + ["RUL"]
-        df_survival = df_features.iloc[:n_train_flat][["unit_id"] + survival_cols].copy()
+        df_survival = splits_df["train"][["unit_id"] + survival_cols].copy()
 
         survival_model = BayesianSurvival()
         try:
             survival_model.fit(df_survival)
-            survival_model.save(os.path.join(config.MODELS_DIR, "ims_bayesian_survival.pkl"))
+            survival_model.save(os.path.join(config.MODELS_DIR, "ims_survival.pkl"))
         except Exception as e:
             print(f"[IMS TRAIN] Survival model fitting failed: {e}")
             print("[IMS TRAIN] Skipping — survival analysis may need more data points.")

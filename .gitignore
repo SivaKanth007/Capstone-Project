@@ -10,6 +10,7 @@ build/
 
 # Virtual environments
 venv/
+.venv/
 .env/
 env/
 
@@ -25,12 +26,16 @@ models/saved/*.pkl
 models/saved/*.json
 models/saved/*.png
 
+# Generated plots
+models/*.png
+
 # Jupyter
 .ipynb_checkpoints/
 
 # IDE
 .vscode/
 .idea/
+pyrightconfig.json
 
 # OS
 .DS_Store
@@ -45,3 +50,9 @@ kaggle.json
 # Temp / generated files
 *.tmp
 *.log
+
+# Claude Code workspace
+.claude/
+
+# IMS processed data (generated)
+data/processed_ims/

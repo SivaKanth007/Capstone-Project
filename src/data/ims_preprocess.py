@@ -15,7 +15,6 @@ Pipeline:
 """
 
 import os
-import sys
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
@@ -23,7 +22,6 @@ from scipy.fft import rfft, rfftfreq
 from sklearn.preprocessing import MinMaxScaler
 import joblib
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 
@@ -341,14 +339,29 @@ class IMSPreprocessor:
         # Step 4: Handle missing values
         df = df.fillna(0)
 
-        # Step 5: Temporal split (chronological — no shuffle for time series)
+        # Step 5: Interleaved split for single time-series
+        # For a single time-series that only fails once at the end, chronological
+        # splitting starves the training set of failures. Interleaved splitting
+        # ensures all phases of degradation are represented in train/val/test.
         n = len(df)
-        n_train = int(n * config.TRAIN_RATIO)
-        n_val = int(n * config.VAL_RATIO)
+        indices = np.arange(n)
+        np.random.seed(config.RANDOM_SEED)
+        assignments = np.zeros(n, dtype=int)  # 0=train, 1=val, 2=test
+        for i in range(n):
+            r = i % 10  # deterministic round-robin over 10 slots
+            if r < 7:   # 70% train
+                assignments[i] = 0
+            elif r < 9:  # 15% val (slots 7, 8)  — rounds to ~20% but close
+                assignments[i] = 1
+            else:        # 15% test (slot 9)     — rounds to ~10%
+                assignments[i] = 2
+        train_idx = indices[assignments == 0]
+        val_idx = indices[assignments == 1]
+        test_idx = indices[assignments == 2]
 
-        df_train = df.iloc[:n_train].copy()
-        df_val = df.iloc[n_train:n_train + n_val].copy()
-        df_test = df.iloc[n_train + n_val:].copy()
+        df_train = df.iloc[train_idx].copy()
+        df_val = df.iloc[val_idx].copy()
+        df_test = df.iloc[test_idx].copy()
 
         print(f"[IMS PREPROCESS] Split: train={len(df_train)}, "
               f"val={len(df_val)}, test={len(df_test)}")
@@ -372,7 +385,18 @@ class IMSPreprocessor:
                   f"RUL=[{y_rul.min():.0f}, {y_rul.max():.0f}], "
                   f"failure_rate={y_binary.mean():.2%}")
 
-        return result, df
+        # Validate that training set has failure samples
+        train_failure_rate = result["train"]["y_binary"].mean()
+        if train_failure_rate == 0:
+            print("[IMS PREPROCESS] WARNING: Training set has 0% failure rate! "
+                  "Model cannot learn failure patterns. Check data split.")
+        elif train_failure_rate < 0.01:
+            print(f"[IMS PREPROCESS] WARNING: Training failure rate is very low "
+                  f"({train_failure_rate:.2%}). Model may not generalize.")
+
+        # Return split DataFrames too (for XGBoost/Survival which need flat features)
+        splits_df = {"train": df_train, "val": df_val, "test": df_test}
+        return result, df, splits_df
 
     def save(self, filepath=None):
         """Save fitted preprocessor."""
@@ -401,7 +425,7 @@ if __name__ == "__main__":
     snapshots, ch_names, info = load_ims_experiment(experiment=2)
 
     preprocessor = IMSPreprocessor()
-    data, df_features = preprocessor.fit_transform(snapshots, ch_names, info)
+    data, df_features, _ = preprocessor.fit_transform(snapshots, ch_names, info)
     preprocessor.save()
 
     print("\n" + "=" * 60)

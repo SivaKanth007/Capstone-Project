@@ -6,7 +6,6 @@ to show which time steps contribute most to failure predictions.
 """
 
 import os
-import sys
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -14,7 +13,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 

@@ -6,13 +6,11 @@ Minimizes expected cost subject to crew capacity and safety constraints.
 """
 
 import os
-import sys
 import numpy as np
 import pandas as pd
 from pulp import (LpProblem, LpMinimize, LpVariable, LpBinary,
                   lpSum, PULP_CBC_CMD, LpStatus, value)
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 

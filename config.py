@@ -25,12 +25,15 @@ for d in [RAW_DATA_DIR, PROCESSED_DATA_DIR, SYNTHETIC_DATA_DIR, MODELS_DIR]:
 # Device Configuration
 # =============================================================================
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"[CONFIG] Using device: {DEVICE}")
-if torch.cuda.is_available():
-    print(f"[CONFIG] GPU: {torch.cuda.get_device_name(0)}")
-    props = torch.cuda.get_device_properties(0)
-    vram = getattr(props, 'total_memory', getattr(props, 'total_mem', 0))
-    print(f"[CONFIG] VRAM: {vram / 1e9:.1f} GB")
+
+def print_system_info():
+    """Print device and GPU information. Call explicitly when needed."""
+    print(f"[CONFIG] Using device: {DEVICE}")
+    if torch.cuda.is_available():
+        print(f"[CONFIG] GPU: {torch.cuda.get_device_name(0)}")
+        props = torch.cuda.get_device_properties(0)
+        vram = getattr(props, 'total_memory', getattr(props, 'total_mem', 0))
+        print(f"[CONFIG] VRAM: {vram / 1e9:.1f} GB")
 
 # =============================================================================
 # C-MAPSS Dataset Configuration
@@ -179,7 +182,7 @@ IMS_EXPERIMENTS = {
 }
 
 # IMS preprocessing hyperparameters
-IMS_MAX_RUL = 500               # Cap pseudo-RUL at 500 snapshots
-IMS_SEQUENCE_LENGTH = 50        # Sliding window for LSTM (50 snapshots)
+IMS_MAX_RUL = 125               # Cap pseudo-RUL at 125 snapshots (aligned with notebook)
+IMS_SEQUENCE_LENGTH = 30        # Sliding window for LSTM (30 snapshots, aligned with notebook)
 IMS_FFT_BANDS = 5               # Frequency bands for spectral energy
 IMS_ROLLING_WINDOWS = [10, 50, 100]  # Rolling windows for trend features

@@ -6,14 +6,12 @@ reactive, scheduled, and optimized approaches.
 """
 
 import os
-import sys
 import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 

@@ -5,14 +5,12 @@ Binary classifier: predicts probability of failure within h cycles.
 """
 
 import os
-import sys
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 
@@ -77,6 +75,7 @@ class LSTMPredictor(nn.Module):
     def predict_proba(self, x):
         """Get failure probability for input sequences."""
         self.eval()
+        self.to(config.DEVICE)
         with torch.no_grad():
             x = x.to(config.DEVICE)
             logits, attn = self.forward(x)
@@ -111,6 +110,14 @@ class PredictorTrainer:
         # Compute class weights for imbalanced data
         pos_count = y_train.sum()
         neg_count = len(y_train) - pos_count
+
+        if pos_count == 0:
+            print("[PREDICTOR] WARNING: Training data has ZERO positive (failure) samples!")
+            print("[PREDICTOR] The model cannot learn failure patterns. Check your data split.")
+        elif pos_count < 10:
+            print(f"[PREDICTOR] WARNING: Only {int(pos_count)} positive samples — "
+                  "model may not generalize well.")
+
         pos_weight = torch.tensor([neg_count / max(pos_count, 1)]).to(config.DEVICE)
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 

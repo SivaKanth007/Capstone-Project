@@ -6,11 +6,9 @@ to complement the C-MAPSS sensor telemetry.
 """
 
 import os
-import sys
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 

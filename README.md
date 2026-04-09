@@ -28,11 +28,14 @@ cd Capstone-Project
 ### Step 2 — Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -e ".[test]"         # recommended: editable install
+# OR
+pip install -r requirements.txt  # classic approach
 ```
 
 > **Requires Python 3.9 or higher.**  
-> No GPU needed — everything runs on CPU. GPU (CUDA) is auto-detected if available.
+> No GPU needed — everything runs on CPU. GPU (CUDA) is auto-detected if available.  
+> For GPU support: `make install-gpu` or `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126`
 
 ### Step 3 — Train All Models
 
@@ -79,7 +82,7 @@ Opens at **http://localhost:8501** in your browser.
 python -m pytest
 ```
 
-All 27 unit tests should pass.
+All 38 unit tests should pass.
 
 ---
 
@@ -119,17 +122,19 @@ Raw Sensor Data → Preprocessing → ML Models → MILP Optimizer → Dashboard
 ```
 Capstone-Project/
 ├── config.py                    # All settings (paths, hyperparameters)
+├── pyproject.toml               # Python packaging (pip install -e .)
+├── Makefile                     # Standardized commands (make train, make test, etc.)
 ├── requirements.txt             # Python dependencies
 ├── pytest.ini                   # Test configuration
 ├── PROJECT_REPORT.md            # Full project report
 │
 ├── scripts/
-│   ├── train_all.py             # ← Run this first to train C-MAPSS models
-│   ├── train_ims.py             # IMS bearing model training
-│   └── run_pipeline.py          # ← Run this to get predictions
+│   ├── train_all.py             # Train C-MAPSS models (run this first)
+│   ├── train_ims.py             # Train IMS bearing models
+│   └── run_pipeline.py          # Run inference and generate recommendations
 │
 ├── dashboard/
-│   └── app.py                   # ← Streamlit dashboard
+│   └── app.py                   # Streamlit dashboard (5 pages)
 │
 ├── src/
 │   ├── data/                    # Data download, preprocessing, features
@@ -144,15 +149,17 @@ Capstone-Project/
 │   ├── optimization/            # MILP maintenance scheduler
 │   └── evaluation/              # Monte Carlo simulation
 │
-├── tests/                       # Unit tests (4 modules)
+├── tests/                       # Unit tests (4 modules, 38 tests)
 │
 ├── notebooks/
 │   └── Smart_Industrial_Maintenance_Full_Pipeline.ipynb  # IMS bearing pipeline
 │
+├── Docs/                        # Project documentation and presentations
+│
 ├── data/                        # Created automatically after training
 │   ├── raw/                     # NASA C-MAPSS dataset
 │   ├── raw_ims/                 # NASA IMS Bearing dataset (3 experiments)
-│   ├── processed/               # Preprocessed sequences
+│   ├── processed/               # Preprocessed sequences + recommendations
 │   └── synthetic/               # Generated maintenance logs
 │
 ├── models/saved/                # Trained model files
@@ -201,6 +208,41 @@ For the IMS Bearing pipeline, open `notebooks/Smart_Industrial_Maintenance_Full_
 | `No data found` | Run `python scripts/train_all.py` first |
 | Dashboard blank | Make sure `run_pipeline.py` has been run |
 | Tests not found | Run `python -m pytest` from the project root |
+
+---
+
+## 🔧 Bring Your Own Data
+
+This project is designed as a **baseline** for production use. You can retrain the entire pipeline on your own industrial sensor data.
+
+### Expected Data Format
+
+| Column | Description |
+|--------|-------------|
+| `unit_id` | Integer ID for each machine/unit |
+| `cycle` | Integer time step (monotonically increasing per unit) |
+| `sensor_1` ... `sensor_N` | Float sensor readings |
+
+Optional: `op_setting_1`, `op_setting_2`, `op_setting_3` (operating conditions).
+
+### Steps to Retrain
+
+1. **Edit `config.py`**: Update `CMAPSS_COLUMNS` to match your columns, adjust `SENSORS_TO_DROP` for constant sensors.
+2. **Place your data** in `data/raw/` as space-separated text (no header), or modify `src/data/download.py` to load your format.
+3. **Retrain**: `make train` (or `python scripts/train_all.py`)
+4. **Inference**: `make inference` (or `python scripts/run_pipeline.py`)
+5. **Dashboard**: `make dashboard` (or `streamlit run dashboard/app.py`)
+
+### Key Parameters (`config.py`)
+
+| Parameter | Default | What it controls |
+|-----------|---------|-----------------|
+| `SEQUENCE_LENGTH` | 30 | LSTM sliding window size |
+| `MAX_RUL` | 125 | Maximum RUL cap |
+| `AE_EPOCHS` | 50 | Autoencoder training epochs |
+| `PRED_FAILURE_HORIZON` | 30 | Cycles-to-failure threshold |
+| `XGB_PARAMS` | See config | Full XGBoost hyperparameters |
+| `MAX_CONCURRENT_CREWS` | 3 | MILP scheduling constraint |
 
 ---
 

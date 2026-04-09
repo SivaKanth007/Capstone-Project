@@ -6,14 +6,12 @@ the lifelines library for calibrated credible intervals.
 """
 
 import os
-import sys
 import numpy as np
 import pandas as pd
 from lifelines import WeibullAFTFitter, KaplanMeierFitter
 from lifelines.utils import concordance_index
 import joblib
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 
@@ -61,8 +59,10 @@ class BayesianSurvival:
         if event_col and event_col in df_surv.columns:
             df_surv["event"] = df_surv[event_col]
         else:
-            # Assume failure observed when RUL is very low
-            df_surv["event"] = (df_surv[rul_col] <= 5).astype(int)
+            # Assume failure observed when RUL is within the prediction horizon
+            # Using PRED_FAILURE_HORIZON (30) instead of a tight threshold (5)
+            # ensures sufficient events for meaningful survival modeling
+            df_surv["event"] = (df_surv[rul_col] <= config.PRED_FAILURE_HORIZON).astype(int)
 
         # Select only numeric feature columns
         exclude = ["unit_id", "cycle", rul_col, "duration", "event"]

@@ -5,14 +5,12 @@ Gradient boosted regression for RUL prediction using engineered features.
 """
 
 import os
-import sys
 import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import joblib
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 
@@ -58,13 +56,27 @@ class XGBoostRUL:
             X_val_arr = X_val.values if isinstance(X_val, pd.DataFrame) else X_val
             eval_set.append((X_val_arr, y_val))
 
-        # Train model
+        # Train model (with CUDA fallback)
         self.model = xgb.XGBRegressor(**self.params)
-        self.model.fit(
-            X_train_arr, y_train,
-            eval_set=eval_set,
-            verbose=10,
-        )
+        try:
+            self.model.fit(
+                X_train_arr, y_train,
+                eval_set=eval_set,
+                verbose=10,
+            )
+        except Exception as e:
+            if "cuda" in str(e).lower() or "gpu" in str(e).lower() or "device" in str(e).lower():
+                print(f"[XGBOOST] GPU training failed ({e}), falling back to CPU...")
+                cpu_params = {k: v for k, v in self.params.items() if k not in ("device", "tree_method")}
+                self.params = cpu_params
+                self.model = xgb.XGBRegressor(**cpu_params)
+                self.model.fit(
+                    X_train_arr, y_train,
+                    eval_set=eval_set,
+                    verbose=10,
+                )
+            else:
+                raise
 
         # Feature importance
         importance = self.model.feature_importances_

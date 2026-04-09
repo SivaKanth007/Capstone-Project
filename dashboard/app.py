@@ -239,7 +239,7 @@ def render_risk_assessment(data):
             else:
                 return "background-color: rgba(68,187,68,0.3); color: #44BB44; font-weight: bold"
 
-        styled = rec.style.applymap(color_risk, subset=["risk_level"])
+        styled = rec.style.map(color_risk, subset=["risk_level"])
         st.dataframe(styled, use_container_width=True, height=400)
 
         # Risk distribution pie chart

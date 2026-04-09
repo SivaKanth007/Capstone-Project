@@ -6,15 +6,12 @@ Supports direct URL download (no authentication needed) with Kaggle API fallback
 """
 
 import os
-import sys
 import subprocess
 import zipfile
 import urllib.request
 import pandas as pd
 import numpy as np
 
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 

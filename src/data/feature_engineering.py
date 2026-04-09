@@ -5,12 +5,10 @@ Advanced feature extraction from C-MAPSS sensor data for ML models.
 """
 
 import os
-import sys
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 
@@ -171,7 +169,7 @@ class FeatureEngineer:
 
         # Fill NaN from lagging with forward fill
         lag_cols = [c for c in df.columns if "_lag" in c]
-        df[lag_cols] = df[lag_cols].fillna(method="bfill").fillna(0)
+        df[lag_cols] = df[lag_cols].bfill().fillna(0)
 
         print(f"[FEATURES] Added {len(lag_cols)} lag features ({len(lags)} lags × {len(sensor_cols)} sensors)")
         return df
@@ -234,7 +232,7 @@ class FeatureEngineer:
         df = self.add_sensor_interactions(df)
 
         final_cols = len(df.columns)
-        print(f"\n[FEATURES] Total features: {initial_cols} → {final_cols} "
+        print(f"\n[FEATURES] Total features: {initial_cols} -> {final_cols} "
               f"(+{final_cols - initial_cols} engineered)")
 
         return df

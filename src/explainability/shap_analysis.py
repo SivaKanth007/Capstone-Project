@@ -5,7 +5,6 @@ Feature attribution for XGBoost and LSTM models using SHAP values.
 """
 
 import os
-import sys
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -13,7 +12,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import shap
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 

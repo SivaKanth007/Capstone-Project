@@ -5,13 +5,11 @@ Cleans, normalizes, and windows the C-MAPSS sensor data for model consumption.
 """
 
 import os
-import sys
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 import joblib
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 
@@ -222,6 +220,15 @@ class DataPreprocessor:
             }
             print(f"[PREPROCESS] {name}: X={X.shape}, y_rul range=[{y_rul.min():.0f}, {y_rul.max():.0f}], "
                   f"failure_rate={y_binary.mean():.2%}")
+
+        # Validate that training set has failure samples
+        train_failure_rate = result["train"]["y_binary"].mean()
+        if train_failure_rate == 0:
+            print("[PREPROCESS] WARNING: Training set has 0% failure rate! "
+                  "Model cannot learn failure patterns. Check data split.")
+        elif train_failure_rate < 0.01:
+            print(f"[PREPROCESS] WARNING: Training failure rate is very low "
+                  f"({train_failure_rate:.2%}). Model may not generalize.")
 
         return result
 

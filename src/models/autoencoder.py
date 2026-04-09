@@ -6,14 +6,12 @@ Anomaly score = reconstruction error (MSE).
 """
 
 import os
-import sys
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import config
 
 
@@ -119,6 +117,7 @@ class LSTMAutoencoder(nn.Module):
         scores : np.ndarray, shape (batch,) — MSE per sample
         """
         self.eval()
+        self.to(config.DEVICE)
         with torch.no_grad():
             x = x.to(config.DEVICE)
             reconstruction = self.forward(x)
@@ -264,6 +263,7 @@ class AutoencoderTrainer:
             "hidden_dim": self.model.hidden_dim,
             "latent_dim": self.model.latent_dim,
             "num_layers": self.model.num_layers,
+            "seq_len": self.model.seq_len,
             "train_history": self.train_history,
             "val_history": self.val_history,
         }, filepath)
@@ -277,9 +277,10 @@ def load_autoencoder(filepath=None):
 
     model = LSTMAutoencoder(
         input_dim=checkpoint["input_dim"],
-        hidden_dim=checkpoint["hidden_dim"],
-        latent_dim=checkpoint["latent_dim"],
-        num_layers=checkpoint["num_layers"],
+        hidden_dim=checkpoint.get("hidden_dim"),
+        latent_dim=checkpoint.get("latent_dim"),
+        num_layers=checkpoint.get("num_layers"),
+        seq_len=checkpoint.get("seq_len"),
     )
     model.load_state_dict(checkpoint["model_state"])
     model.threshold = checkpoint["threshold"]

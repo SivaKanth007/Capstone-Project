@@ -146,7 +146,7 @@ class TestIMSPreprocessor:
         snapshots, ch_names, exp_info = synthetic_snapshots
 
         preprocessor = IMSPreprocessor()
-        data, df = preprocessor.fit_transform(snapshots, ch_names, exp_info)
+        data, df, _ = preprocessor.fit_transform(snapshots, ch_names, exp_info)
 
         assert "train" in data
         assert "val" in data
@@ -184,7 +184,7 @@ class TestIMSModelCompatibility:
         from src.data.ims_preprocess import IMSPreprocessor
 
         preprocessor = IMSPreprocessor()
-        data, _ = preprocessor.fit_transform(snapshots, ch_names, exp_info)
+        data, _, _ = preprocessor.fit_transform(snapshots, ch_names, exp_info)
 
         if len(data["train"]["X"]) > 0:
             X = data["train"]["X"]
@@ -201,7 +201,7 @@ class TestIMSModelCompatibility:
 
         snapshots, ch_names, exp_info = synthetic_snapshots
         preprocessor = IMSPreprocessor()
-        data, _ = preprocessor.fit_transform(snapshots, ch_names, exp_info)
+        data, _, _ = preprocessor.fit_transform(snapshots, ch_names, exp_info)
 
         if len(data["train"]["X"]) > 0:
             X = data["train"]["X"]

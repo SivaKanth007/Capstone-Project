@@ -177,8 +177,8 @@ def run_ims_pipeline(experiment=2, test_mode=False):
     print("\n[IMS PIPELINE] Loading IMS-trained models...")
 
     autoencoder = load_autoencoder(os.path.join(config.MODELS_DIR, "ims_autoencoder.pt"))
-    predictor = load_predictor(os.path.join(config.MODELS_DIR, "ims_lstm_predictor.pt"))
-    xgb_model = XGBoostRUL.load(os.path.join(config.MODELS_DIR, "ims_xgboost_rul.pkl"))
+    predictor = load_predictor(os.path.join(config.MODELS_DIR, "ims_predictor.pt"))
+    xgb_model = XGBoostRUL.load(os.path.join(config.MODELS_DIR, "ims_xgboost.pkl"))
 
     # =========================================================================
     # Load IMS Test Data
