@@ -15,7 +15,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
 import config
-from src.data.download import download_cmapss, load_cmapss_train
+from src.data.download import download_cmapss, load_cmapss_train, load_cmapss_all_subsets
 from src.data.preprocess import DataPreprocessor
 from src.data.feature_engineering import FeatureEngineer
 from src.data.synthetic_generator import SyntheticDataGenerator
@@ -55,7 +55,9 @@ def main():
     else:
         print(f"[TRAIN] Data already downloaded ({len(existing_data)} files), skipping...")
 
-    df_train = load_cmapss_train()
+    # Load all C-MAPSS subsets (FD001-FD004)
+    print(f"[TRAIN] Loading subsets: {config.CMAPSS_SUBSETS}")
+    df_train = load_cmapss_all_subsets()
 
     # =========================================================================
     # Step 2: Generate Synthetic Data
@@ -75,7 +77,9 @@ def main():
     print("=" * 70)
 
     fe = FeatureEngineer()
-    df_engineered = fe.engineer_features(df_train.copy())
+    # Drop subset column if present (from multi-subset loading) before engineering
+    df_for_fe = df_train.drop(columns=["subset"], errors="ignore").copy()
+    df_engineered = fe.engineer_features(df_for_fe)
 
     # =========================================================================
     # Step 4: Preprocessing (for LSTM models)
@@ -84,8 +88,11 @@ def main():
     print("STEP 4: DATA PREPROCESSING")
     print("=" * 70)
 
+    # Drop subset column before preprocessing (not a feature)
+    df_for_preprocess = df_train.drop(columns=["subset"], errors="ignore")
+
     preprocessor = DataPreprocessor()
-    data = preprocessor.fit_transform(df_train)
+    data = preprocessor.fit_transform(df_for_preprocess, augment=config.SYNTHETIC_AUGMENT)
     preprocessor.save()
 
     # Save processed data

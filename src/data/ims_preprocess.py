@@ -345,25 +345,16 @@ class IMSPreprocessor:
         # ensures all phases of degradation are represented in train/val/test.
         n = len(df)
         indices = np.arange(n)
-        np.random.seed(config.RANDOM_SEED)
-        assignments = np.zeros(n, dtype=int)  # 0=train, 1=val, 2=test
-        for i in range(n):
-            r = i % 10  # deterministic round-robin over 10 slots
-            if r < 7:   # 70% train
-                assignments[i] = 0
-            elif r < 9:  # 15% val (slots 7, 8)  — rounds to ~20% but close
-                assignments[i] = 1
-            else:        # 15% test (slot 9)     — rounds to ~10%
-                assignments[i] = 2
-        train_idx = indices[assignments == 0]
-        val_idx = indices[assignments == 1]
-        test_idx = indices[assignments == 2]
+        test_idx = indices[::7]  # ~14% for test
+        remaining = np.array([i for i in indices if i not in test_idx])
+        val_idx = remaining[::6]  # ~14% for val
+        train_idx = np.array([i for i in remaining if i not in val_idx])  # ~72% for train
 
         df_train = df.iloc[train_idx].copy()
         df_val = df.iloc[val_idx].copy()
         df_test = df.iloc[test_idx].copy()
 
-        print(f"[IMS PREPROCESS] Split: train={len(df_train)}, "
+        print(f"[IMS PREPROCESS] Interleaved Split: train={len(df_train)}, "
               f"val={len(df_val)}, test={len(df_test)}")
 
         # Step 6: Normalize (fit on train)
@@ -371,19 +362,45 @@ class IMSPreprocessor:
         df_val = self.normalize(df_val, fit=False)
         df_test = self.normalize(df_test, fit=False)
 
-        # Step 7: Create sequences
-        result = {}
-        for name, data in [("train", df_train), ("val", df_val), ("test", df_test)]:
-            X, y_rul = self.create_sequences(data)
-            y_binary = self.create_binary_labels(y_rul)
-            result[name] = {
-                "X": X,
-                "y_rul": y_rul,
-                "y_binary": y_binary,
-            }
-            print(f"[IMS PREPROCESS] {name}: X={X.shape}, "
-                  f"RUL=[{y_rul.min():.0f}, {y_rul.max():.0f}], "
-                  f"failure_rate={y_binary.mean():.2%}")
+        # Step 7: Create full normalized df for sequence creation
+        full_df = pd.concat([df_train, df_val, df_test]).sort_values("file_index").reset_index(drop=True)
+
+        # Create all sequences from full timeline
+        all_X, all_y_rul = self.create_sequences(full_df)
+        all_y_binary = self.create_binary_labels(all_y_rul)
+
+        # Sequence end indices (corresponding to file_index)
+        seq_len = config.IMS_SEQUENCE_LENGTH
+        all_indices = np.arange(seq_len - 1, len(full_df))
+
+        # Split sequences based on original split indices
+        train_mask = np.isin(all_indices, train_idx)
+        val_mask = np.isin(all_indices, val_idx)
+        test_mask = np.isin(all_indices, test_idx)
+
+        result = {
+            "train": {
+                "X": all_X[train_mask],
+                "y_rul": all_y_rul[train_mask],
+                "y_binary": all_y_binary[train_mask],
+            },
+            "val": {
+                "X": all_X[val_mask],
+                "y_rul": all_y_rul[val_mask],
+                "y_binary": all_y_binary[val_mask],
+            },
+            "test": {
+                "X": all_X[test_mask],
+                "y_rul": all_y_rul[test_mask],
+                "y_binary": all_y_binary[test_mask],
+            },
+        }
+
+        for name in ["train", "val", "test"]:
+            d = result[name]
+            print(f"[IMS PREPROCESS] {name}: X={d['X'].shape}, "
+                  f"RUL=[{d['y_rul'].min():.0f}, {d['y_rul'].max():.0f}], "
+                  f"failure_rate={d['y_binary'].mean():.2%}")
 
         # Validate that training set has failure samples
         train_failure_rate = result["train"]["y_binary"].mean()

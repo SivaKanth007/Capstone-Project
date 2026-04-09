@@ -11,6 +11,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import config
 from src.data.preprocess import DataPreprocessor
+from src.data.synthetic_cmapss import SyntheticCMAPSSGenerator
 
 
 @pytest.fixture
@@ -117,7 +118,7 @@ class TestBinaryLabels:
 
 class TestFullPipeline:
     def test_fit_transform(self, preprocessor, sample_data):
-        result = preprocessor.fit_transform(sample_data)
+        result = preprocessor.fit_transform(sample_data, augment=False)
 
         assert "train" in result
         assert "val" in result
@@ -129,3 +130,64 @@ class TestFullPipeline:
             assert "y_binary" in split
             assert "unit_ids" in split
             assert split["X"].ndim == 3
+
+    def test_fit_transform_with_augmentation(self, preprocessor, sample_data):
+        result_no_aug = preprocessor.fit_transform(sample_data, augment=False)
+        preprocessor2 = DataPreprocessor()
+        result_aug = preprocessor2.fit_transform(sample_data, augment=True)
+
+        # Augmented training set should be larger
+        assert result_aug["train"]["X"].shape[0] > result_no_aug["train"]["X"].shape[0]
+        # Val/test should be same size (no augmentation)
+        assert result_aug["val"]["X"].shape[0] == result_no_aug["val"]["X"].shape[0]
+        assert result_aug["test"]["X"].shape[0] == result_no_aug["test"]["X"].shape[0]
+
+
+class TestEqualSplit:
+    def test_split_ratios_roughly_equal(self, preprocessor, sample_data):
+        train, val, test = preprocessor.temporal_split(sample_data)
+        total_units = sample_data["unit_id"].nunique()
+        train_units = train["unit_id"].nunique()
+        val_units = val["unit_id"].nunique()
+        test_units = test["unit_id"].nunique()
+
+        # With 10 units and ~1/3 each, expect 3-4 per split
+        assert train_units >= 2
+        assert val_units >= 2
+        assert test_units >= 2
+        assert train_units + val_units + test_units == total_units
+
+
+class TestSyntheticCMAPSSGenerator:
+    def test_fit_and_generate(self, sample_data):
+        gen = SyntheticCMAPSSGenerator(seed=42)
+        gen.fit(sample_data)
+        df_syn = gen.generate(n_units=5, start_unit_id=100)
+
+        assert df_syn["unit_id"].nunique() == 5
+        assert "RUL" in df_syn.columns
+        assert "cycle" in df_syn.columns
+        assert df_syn["RUL"].max() <= config.MAX_RUL
+        assert len(df_syn) > 0
+
+    def test_generate_for_augmentation(self, sample_data):
+        gen = SyntheticCMAPSSGenerator(seed=42)
+        df_syn = gen.generate_for_augmentation(sample_data)
+
+        # Synthetic data should exist
+        assert len(df_syn) > 0
+        # Unit IDs should not overlap with real data
+        real_max = sample_data["unit_id"].max()
+        assert df_syn["unit_id"].min() > real_max
+
+    def test_synthetic_schema_matches_real(self, sample_data):
+        gen = SyntheticCMAPSSGenerator(seed=42)
+        gen.fit(sample_data)
+        df_syn = gen.generate(n_units=3, start_unit_id=100)
+
+        # Check key columns exist
+        for col in ["unit_id", "cycle", "RUL"]:
+            assert col in df_syn.columns
+        # Check at least some sensor columns
+        sensor_cols = [c for c in df_syn.columns if c.startswith("sensor_")]
+        assert len(sensor_cols) >= 10

@@ -91,10 +91,10 @@ class PredictorTrainer:
         self.lr = lr or config.PRED_LEARNING_RATE
         self.epochs = epochs or config.PRED_EPOCHS
         self.batch_size = batch_size or config.PRED_BATCH_SIZE
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=self.lr, weight_decay=1e-5)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, patience=5, factor=0.5
-        )
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
+        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     self.optimizer, patience=5, factor=0.5
+        # )
         self.train_history = []
         self.val_history = []
 
@@ -118,7 +118,12 @@ class PredictorTrainer:
             print(f"[PREDICTOR] WARNING: Only {int(pos_count)} positive samples — "
                   "model may not generalize well.")
 
-        pos_weight = torch.tensor([neg_count / max(pos_count, 1)]).to(config.DEVICE)
+        # Dynamic pos_weight based on actual class balance (capped at 20.0)
+        if pos_count > 0:
+            computed_weight = min(neg_count / pos_count, 20.0)
+        else:
+            computed_weight = 20.0
+        pos_weight = torch.tensor([computed_weight]).to(config.DEVICE)
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         train_tensor_x = torch.FloatTensor(X_train)
@@ -135,7 +140,7 @@ class PredictorTrainer:
                 batch_size=self.batch_size, shuffle=False
             )
 
-        best_val_f1 = 0
+        best_val_auc = 0
         best_state = None
 
         print(f"\n[PREDICTOR] Training on {config.DEVICE} "
@@ -163,13 +168,13 @@ class PredictorTrainer:
             self.train_history.append(train_loss)
 
             # Validation
-            if val_loader is not None and (epoch + 1) % 5 == 0:
+            if val_loader is not None and (epoch + 1) % 10 == 0:
                 metrics = self._evaluate(val_loader, y_val)
                 self.val_history.append(metrics)
-                self.scheduler.step(1 - metrics["f1"])
+                # self.scheduler.step(1 - metrics["auc"])
 
-                if metrics["f1"] > best_val_f1:
-                    best_val_f1 = metrics["f1"]
+                if metrics["auc"] > best_val_auc:
+                    best_val_auc = metrics["auc"]
                     best_state = {k: v.cpu().clone() for k, v in self.model.state_dict().items()}
 
                 print(f"  Epoch {epoch+1}/{self.epochs} — Loss: {train_loss:.4f} | "
@@ -182,7 +187,9 @@ class PredictorTrainer:
         if best_state is not None:
             self.model.load_state_dict(best_state)
             self.model.to(config.DEVICE)
-            print(f"[PREDICTOR] Restored best model (F1={best_val_f1:.4f})")
+            print(f"[PREDICTOR] Restored best model (AUC={best_val_auc:.4f})")
+        else:
+            print(f"[PREDICTOR] No best model found, using last model")
 
         return self.model
 

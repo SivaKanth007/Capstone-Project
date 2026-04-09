@@ -332,6 +332,58 @@ def load_cmapss_train(subset="FD001", data_dir=None):
     return df
 
 
+def load_cmapss_all_subsets(subsets=None, data_dir=None):
+    """
+    Load and combine training data from multiple C-MAPSS subsets.
+
+    Unit IDs are remapped to be globally unique across subsets.
+    E.g., FD001 units 1-100, FD002 units 101-360, etc.
+
+    Parameters
+    ----------
+    subsets : list[str]
+        Subset identifiers (default: all from config).
+    data_dir : str
+        Data directory.
+
+    Returns
+    -------
+    pd.DataFrame
+        Combined training data with unique unit_ids and a 'subset' column.
+    """
+    subsets = subsets or config.CMAPSS_SUBSETS
+
+    dfs = []
+    unit_offset = 0
+
+    for subset in subsets:
+        try:
+            df = load_cmapss_train(subset=subset, data_dir=data_dir)
+            df["subset"] = subset
+
+            # Remap unit_ids to be globally unique
+            df["unit_id"] = df["unit_id"] + unit_offset
+            unit_offset = df["unit_id"].max()
+
+            dfs.append(df)
+            print(f"[DOWNLOAD] {subset}: {df['unit_id'].nunique()} units, {len(df)} rows")
+        except FileNotFoundError:
+            print(f"[DOWNLOAD] WARNING: {subset} not found, skipping.")
+            continue
+
+    if not dfs:
+        raise FileNotFoundError(
+            f"No C-MAPSS subsets found. Tried: {subsets}. "
+            f"Run download_cmapss() first."
+        )
+
+    df_all = pd.concat(dfs, ignore_index=True)
+    print(f"[DOWNLOAD] Combined: {df_all['unit_id'].nunique()} total units, "
+          f"{len(df_all)} total rows from {len(dfs)} subsets")
+
+    return df_all
+
+
 def load_cmapss_test(subset="FD001", data_dir=None):
     """
     Load C-MAPSS test data and RUL labels.

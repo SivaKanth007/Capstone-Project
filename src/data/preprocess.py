@@ -181,14 +181,24 @@ class DataPreprocessor:
         h = horizon or config.PRED_FAILURE_HORIZON
         return (rul_values <= h).astype(np.float32)
 
-    def fit_transform(self, df):
+    def fit_transform(self, df, augment=None):
         """
         Full preprocessing pipeline (fit on training data).
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Raw C-MAPSS data (all subsets combined).
+        augment : bool or None
+            If True, generate synthetic data and inject into training set.
+            Defaults to config.SYNTHETIC_AUGMENT.
 
         Returns
         -------
         dict with keys: 'train', 'val', 'test', each containing (X, y_rul, y_binary, unit_ids)
         """
+        augment = augment if augment is not None else config.SYNTHETIC_AUGMENT
+
         print("=" * 60)
         print("Running Full Preprocessing Pipeline")
         print("=" * 60)
@@ -202,7 +212,32 @@ class DataPreprocessor:
         # Step 3: Temporal split (BEFORE normalization to prevent leakage)
         df_train, df_val, df_test = self.temporal_split(df)
 
-        # Step 4: Normalize (fit on train, transform val/test)
+        # Step 3.5: Synthetic augmentation (training set only)
+        if augment:
+            from src.data.synthetic_cmapss import SyntheticCMAPSSGenerator
+            print(f"\n[PREPROCESS] Augmenting training data with synthetic units "
+                  f"(target ratio: {config.SYNTHETIC_TARGET_RATIO:.0%})...")
+
+            generator = SyntheticCMAPSSGenerator()
+            df_synthetic = generator.generate_for_augmentation(df_train)
+
+            # Drop constant sensors from synthetic data to match schema
+            cols_to_drop = config.SENSORS_TO_DROP + config.OP_SETTINGS_TO_DROP
+            cols_to_drop = [c for c in cols_to_drop if c in df_synthetic.columns]
+            df_synthetic = df_synthetic.drop(columns=cols_to_drop, errors='ignore')
+
+            # Ensure column alignment
+            missing_cols = set(df_train.columns) - set(df_synthetic.columns)
+            for col in missing_cols:
+                df_synthetic[col] = 0.0
+            df_synthetic = df_synthetic[df_train.columns]
+
+            real_train_count = len(df_train)
+            df_train = pd.concat([df_train, df_synthetic], ignore_index=True)
+            print(f"[PREPROCESS] Training set: {real_train_count} real + "
+                  f"{len(df_synthetic)} synthetic = {len(df_train)} total")
+
+        # Step 4: Normalize (fit on train including synthetic, transform val/test)
         df_train = self.normalize(df_train, fit=True)
         df_val = self.normalize(df_val, fit=False)
         df_test = self.normalize(df_test, fit=False)

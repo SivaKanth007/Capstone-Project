@@ -39,7 +39,7 @@ def print_system_info():
 # C-MAPSS Dataset Configuration
 # =============================================================================
 CMAPSS_DATASET = "behrad3d/nasa-cmaps"  # Kaggle dataset identifier
-CMAPSS_SUBSETS = ["FD001"]  # Start with FD001 (single operating condition, single fault mode)
+CMAPSS_SUBSETS = ["FD001", "FD002", "FD003", "FD004"]  # All 4 subsets
 
 # Column names for C-MAPSS
 CMAPSS_COLUMNS = (
@@ -64,9 +64,17 @@ ACTIVE_SENSORS = [f"sensor_{i}" for i in range(1, 22)
 # =============================================================================
 SEQUENCE_LENGTH = 30          # Sliding window length (cycles)
 MAX_RUL = 125                 # Cap RUL at this value (piecewise linear)
-TRAIN_RATIO = 0.70
-VAL_RATIO = 0.15
-TEST_RATIO = 0.15
+TRAIN_RATIO = 0.34
+VAL_RATIO = 0.33
+TEST_RATIO = 0.33
+
+# =============================================================================
+# Synthetic Augmentation (C-MAPSS)
+# =============================================================================
+SYNTHETIC_AUGMENT = True              # Enable synthetic training augmentation
+SYNTHETIC_TARGET_RATIO = 0.30         # Synthetic = 30% of total training data
+SYNTHETIC_NOISE_LEVEL = 0.03          # Gaussian noise scale relative to feature std
+SYNTHETIC_DEGRADATION_MODELS = ["exponential", "linear", "polynomial"]
 
 # =============================================================================
 # Feature Engineering
