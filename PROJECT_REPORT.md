@@ -528,6 +528,22 @@ A Streamlit-based dashboard (`dashboard/app.py`) provides real-time fleet monito
 streamlit run dashboard/app.py
 ```
 
+### Dashboard Preview
+
+| Fleet Overview | Risk Assessment |
+|:-:|:-:|
+| ![Fleet Overview](assets/dashboard_fleet_overview.png) | ![Risk Assessment](assets/dashboard_risk_assessment.png) |
+
+| Maintenance Schedule | Maintenance History |
+|:-:|:-:|
+| ![Maintenance Schedule](assets/dashboard_maintenance_schedule.png) | ![Maintenance History](assets/dashboard_maintenance_history.png) |
+
+| Operational Context | Model Performance & Explainability |
+|:-:|:-:|
+| ![Operational Context](assets/dashboard_operational_context.png) | *Run `make dashboard` after training to view live* |
+
+---
+
 ### 10.1 Fleet Overview
 
 Displays aggregated fleet health: total machines monitored, near-failure sample count, average RUL, and healthy sample count — plus a RUL distribution histogram and per-unit health status bar chart.

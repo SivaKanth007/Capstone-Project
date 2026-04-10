@@ -54,5 +54,8 @@ kaggle.json
 # Claude Code workspace
 .claude/
 
+# Superpowers / AI planning artifacts
+docs/superpowers/
+
 # IMS processed data (generated)
 data/processed_ims/

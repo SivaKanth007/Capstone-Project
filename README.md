@@ -252,6 +252,27 @@ Capstone-Project/
 
 ---
 
+## Dashboard Preview
+
+The dashboard runs locally via `streamlit run dashboard/app.py`. Screenshots of the static pages are shown below — the **Model Performance** and **Explainability & AI Insights** pages are data-dependent and best viewed live after training.
+
+### Fleet Overview
+![Fleet Overview](assets/dashboard_fleet_overview.png)
+
+### Risk Assessment
+![Risk Assessment](assets/dashboard_risk_assessment.png)
+
+### Maintenance Schedule
+![Maintenance Schedule](assets/dashboard_maintenance_schedule.png)
+
+### Maintenance History
+![Maintenance History](assets/dashboard_maintenance_history.png)
+
+### Operational Context
+![Operational Context](assets/dashboard_operational_context.png)
+
+---
+
 ## Dashboard Pages
 
 | Page | Description |
