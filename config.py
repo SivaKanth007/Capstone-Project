@@ -64,9 +64,9 @@ ACTIVE_SENSORS = [f"sensor_{i}" for i in range(1, 22)
 # =============================================================================
 SEQUENCE_LENGTH = 30          # Sliding window length (cycles)
 MAX_RUL = 125                 # Cap RUL at this value (piecewise linear)
-TRAIN_RATIO = 0.34
-VAL_RATIO = 0.33
-TEST_RATIO = 0.33
+TRAIN_RATIO = 0.70
+VAL_RATIO = 0.15
+TEST_RATIO = 0.15
 
 # =============================================================================
 # Synthetic Augmentation (C-MAPSS)
