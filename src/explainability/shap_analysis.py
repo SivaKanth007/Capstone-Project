@@ -74,7 +74,8 @@ class SHAPExplainer:
             self.setup_explainer()
 
         if len(X) > max_samples:
-            idx = np.random.choice(len(X), max_samples, replace=False)
+            rng = np.random.default_rng(config.RANDOM_SEED)
+            idx = rng.choice(len(X), max_samples, replace=False)
             X_sample = X.iloc[idx] if isinstance(X, pd.DataFrame) else X[idx]
         else:
             X_sample = X
