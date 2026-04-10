@@ -31,6 +31,7 @@ class BayesianSurvival:
         self.km_fitter = KaplanMeierFitter()
         self.confidence_levels = confidence_levels or config.SURVIVAL_CONFIDENCE_LEVELS
         self.fitted = False
+        self.selected_feature_cols = None  # set during fit(); used by predict methods
 
     def prepare_survival_data(self, df, rul_col="RUL", event_col=None):
         """
@@ -59,10 +60,11 @@ class BayesianSurvival:
         if event_col and event_col in df_surv.columns:
             df_surv["event"] = df_surv[event_col]
         else:
-            # Assume failure observed when RUL is within the prediction horizon
-            # Using PRED_FAILURE_HORIZON (30) instead of a tight threshold (5)
-            # ensures sufficient events for meaningful survival modeling
-            df_surv["event"] = (df_surv[rul_col] <= config.PRED_FAILURE_HORIZON).astype(int)
+            # event = 1 means the failure was observed at this point in time.
+            # In C-MAPSS run-to-failure data, failure occurs at RUL == 0.
+            # All other observations are right-censored (the unit was still
+            # running when the cycle was recorded).
+            df_surv["event"] = (df_surv[rul_col] == 0).astype(int)
 
         # Select only numeric feature columns
         exclude = ["unit_id", "cycle", rul_col, "duration", "event"]
@@ -92,6 +94,29 @@ class BayesianSurvival:
         keep_cols = feature_cols + ["duration", "event"]
         return df_surv[keep_cols], feature_cols
 
+    def _apply_feature_selection(self, df, rul_col="RUL"):
+        """
+        Prepare data for prediction using the feature set selected during fit().
+
+        Unlike prepare_survival_data(), this does NOT re-run correlation-based
+        feature selection — it applies the saved self.selected_feature_cols so
+        the column set is identical to what the model was trained on.
+        """
+        if self.selected_feature_cols is None:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        df_surv, _ = self.prepare_survival_data(df, rul_col=rul_col)
+
+        missing = [c for c in self.selected_feature_cols if c not in df_surv.columns]
+        if missing:
+            raise ValueError(
+                f"Prediction data is missing columns present during fit: {missing}"
+            )
+        keep = self.selected_feature_cols + [
+            c for c in ["duration", "event"] if c in df_surv.columns
+        ]
+        return df_surv[[c for c in keep if c in df_surv.columns]]
+
     def fit(self, df, rul_col="RUL"):
         """
         Fit the Weibull AFT survival model.
@@ -103,6 +128,7 @@ class BayesianSurvival:
         """
         print("[SURVIVAL] Preparing survival data...")
         df_surv, feature_cols = self.prepare_survival_data(df, rul_col=rul_col)
+        self.selected_feature_cols = feature_cols  # lock in feature set at fit time
 
         print(f"[SURVIVAL] Fitting Weibull AFT model with {len(feature_cols)} covariates, "
               f"{len(df_surv)} observations")
@@ -157,8 +183,7 @@ class BayesianSurvival:
         if times is None:
             times = np.arange(1, config.MAX_RUL + 1, 5)
 
-        df_surv, _ = self.prepare_survival_data(df)
-        # Remove duration and event for prediction
+        df_surv = self._apply_feature_selection(df)
         df_pred = df_surv.drop(columns=["duration", "event"], errors="ignore")
 
         survival_probs = self.model.predict_survival_function(df_pred, times=times)
@@ -175,7 +200,7 @@ class BayesianSurvival:
         if not self.fitted:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-        df_surv, _ = self.prepare_survival_data(df)
+        df_surv = self._apply_feature_selection(df)
         df_pred = df_surv.drop(columns=["duration", "event"], errors="ignore")
 
         median_ttf = self.model.predict_median(df_pred)
@@ -192,7 +217,7 @@ class BayesianSurvival:
         if not self.fitted:
             raise RuntimeError("Model not fitted.")
 
-        df_surv, _ = self.prepare_survival_data(df)
+        df_surv = self._apply_feature_selection(df)
         df_pred = df_surv.drop(columns=["duration", "event"], errors="ignore")
 
         result = {"median": self.model.predict_median(df_pred).values.flatten()}
@@ -215,7 +240,7 @@ class BayesianSurvival:
         -------
         dict with concordance index and other metrics.
         """
-        df_surv, _ = self.prepare_survival_data(df, rul_col=rul_col)
+        df_surv = self._apply_feature_selection(df, rul_col=rul_col)
         df_pred = df_surv.drop(columns=["duration", "event"], errors="ignore")
 
         median_pred = self.model.predict_median(df_pred).values.flatten()
@@ -257,6 +282,7 @@ class BayesianSurvival:
             "km_fitter": self.km_fitter,
             "fitted": self.fitted,
             "confidence_levels": self.confidence_levels,
+            "selected_feature_cols": self.selected_feature_cols,
         }, filepath)
         print(f"[SURVIVAL] Model saved to {filepath}")
 
@@ -269,5 +295,6 @@ class BayesianSurvival:
         instance.model = state["model"]
         instance.km_fitter = state["km_fitter"]
         instance.fitted = state["fitted"]
+        instance.selected_feature_cols = state.get("selected_feature_cols")
         print(f"[SURVIVAL] Model loaded from {filepath}")
         return instance

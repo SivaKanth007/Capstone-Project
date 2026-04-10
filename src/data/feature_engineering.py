@@ -130,6 +130,9 @@ class FeatureEngineer:
             return df
 
         if fit:
+            # IMPORTANT: Only call with fit=True on the TRAINING split.
+            # Fitting on the full dataset (train+val+test) leaks val/test
+            # distribution into the regime cluster assignments.
             self.regime_model = KMeans(
                 n_clusters=n_clusters,
                 random_state=config.RANDOM_SEED,
