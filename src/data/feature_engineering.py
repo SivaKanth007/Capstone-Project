@@ -197,12 +197,18 @@ class FeatureEngineer:
         return df
 
     def add_cycle_features(self, df):
-        """Add normalized cycle position within each unit's lifecycle."""
-        max_cycles = df.groupby("unit_id")["cycle"].transform("max")
-        df["cycle_norm"] = df["cycle"] / max_cycles
-        df["cycle_squared"] = df["cycle_norm"] ** 2
-        print("[FEATURES] Added cycle_norm and cycle_squared features")
-        return df
+        """
+        DEPRECATED — do not call this method.
+
+        cycle_norm = cycle / max_cycle encodes the unit's failure cycle (future
+        information) as a feature, causing target leakage. This method is
+        retained for reference only and raises an error if called.
+        """
+        raise RuntimeError(
+            "add_cycle_features() is disabled: cycle_norm and cycle_squared encode "
+            "the unit's failure cycle (future information) and cause target leakage. "
+            "Remove this call from your pipeline."
+        )
 
     def engineer_features(self, df, fit=True):
         """
@@ -224,7 +230,8 @@ class FeatureEngineer:
 
         initial_cols = len(df.columns)
 
-        df = self.add_cycle_features(df)
+        # NOTE: add_cycle_features() is intentionally excluded — cycle_norm
+        # encodes the failure cycle (future information) and causes target leakage.
         df = self.add_rolling_statistics(df)
         df = self.add_trend_features(df)
         df = self.add_operating_regimes(df, fit=fit)

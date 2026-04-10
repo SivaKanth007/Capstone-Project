@@ -138,6 +138,27 @@ class TestXGBoostRUL:
         assert len(model.feature_importance) == X.shape[1]
 
 
+class TestFeatureEngineering:
+    def test_engineer_features_no_cycle_norm(self):
+        """engineer_features must not produce cycle_norm or cycle_squared (leaky features)."""
+        import pandas as pd
+        from src.data.feature_engineering import FeatureEngineer
+        df = pd.DataFrame({
+            "unit_id": [1] * 10 + [2] * 10,
+            "cycle": list(range(1, 11)) * 2,
+            "op_setting_1": np.random.rand(20),
+            "op_setting_2": np.random.rand(20),
+            "sensor_2": np.random.rand(20),
+            "sensor_3": np.random.rand(20),
+            "sensor_4": np.random.rand(20),
+            "RUL": list(range(9, -1, -1)) * 2,
+        })
+        fe = FeatureEngineer()
+        df_out = fe.engineer_features(df, fit=True)
+        assert "cycle_norm" not in df_out.columns, "cycle_norm is target leakage and must be excluded"
+        assert "cycle_squared" not in df_out.columns, "cycle_squared is target leakage and must be excluded"
+
+
 class TestReproducibility:
     def test_training_is_deterministic(self, sample_sequences):
         """Two forward passes with same seed must produce identical outputs."""
