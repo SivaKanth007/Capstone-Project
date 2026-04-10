@@ -9,7 +9,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score, precision_recall_curve
+from tqdm import tqdm
 
 import config
 
@@ -105,9 +106,9 @@ class PredictorTrainer:
         self.epochs = epochs or config.PRED_EPOCHS
         self.batch_size = batch_size or config.PRED_BATCH_SIZE
         self.optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
-        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        #     self.optimizer, patience=5, factor=0.5
-        # )
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, patience=5, factor=0.5, mode="max"
+        )
         self.train_history = []
         self.val_history = []
 
@@ -143,30 +144,35 @@ class PredictorTrainer:
         train_tensor_y = torch.FloatTensor(y_train)
         train_loader = DataLoader(
             TensorDataset(train_tensor_x, train_tensor_y),
-            batch_size=self.batch_size, shuffle=True
+            batch_size=self.batch_size, shuffle=True,
+            num_workers=config.NUM_WORKERS, pin_memory=config.PIN_MEMORY,
         )
 
         val_loader = None
         if X_val is not None and y_val is not None:
             val_loader = DataLoader(
                 TensorDataset(torch.FloatTensor(X_val), torch.FloatTensor(y_val)),
-                batch_size=self.batch_size, shuffle=False
+                batch_size=self.batch_size, shuffle=False,
+                num_workers=config.NUM_WORKERS, pin_memory=config.PIN_MEMORY,
             )
 
         best_val_auc = 0
         best_state = None
 
         print(f"\n[PREDICTOR] Training on {config.DEVICE} "
-              f"({len(X_train)} samples, pos_rate={pos_count/len(y_train):.2%})")
+              f"({len(X_train)} samples, pos_rate={pos_count/len(y_train):.2%}, "
+              f"batch_size={self.batch_size})")
         print(f"[PREDICTOR] Positive weight: {pos_weight.item():.2f}")
 
-        for epoch in range(self.epochs):
+        n_batches = len(train_loader)
+        epoch_bar = tqdm(range(self.epochs), desc="[PRED] Epochs", unit="epoch")
+        for epoch in epoch_bar:
             # Training
             self.model.train()
             train_loss = 0
-            for batch_x, batch_y in train_loader:
-                batch_x = batch_x.to(config.DEVICE)
-                batch_y = batch_y.to(config.DEVICE)
+            for batch_idx, (batch_x, batch_y) in enumerate(train_loader, 1):
+                batch_x = batch_x.to(config.DEVICE, non_blocking=config.PIN_MEMORY)
+                batch_y = batch_y.to(config.DEVICE, non_blocking=config.PIN_MEMORY)
 
                 logits, _ = self.model(batch_x)
                 loss = criterion(logits, batch_y)
@@ -176,25 +182,27 @@ class PredictorTrainer:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 self.optimizer.step()
                 train_loss += loss.item() * len(batch_x)
+                epoch_bar.set_postfix(batch=f"{batch_idx}/{n_batches}",
+                                      loss=f"{loss.item():.4f}")
 
             train_loss /= len(X_train)
             self.train_history.append(train_loss)
 
             # Validation
+            postfix = {"train_loss": f"{train_loss:.4f}"}
             if val_loader is not None and (epoch + 1) % 10 == 0:
                 metrics = self._evaluate(val_loader, y_val)
                 self.val_history.append(metrics)
-                # self.scheduler.step(1 - metrics["auc"])
+                self.scheduler.step(metrics["auc"])
 
                 if metrics["auc"] > best_val_auc:
                     best_val_auc = metrics["auc"]
                     best_state = {k: v.cpu().clone() for k, v in self.model.state_dict().items()}
 
-                print(f"  Epoch {epoch+1}/{self.epochs} — Loss: {train_loss:.4f} | "
-                      f"F1: {metrics['f1']:.4f} | AUC: {metrics['auc']:.4f} | "
-                      f"Prec: {metrics['precision']:.4f} | Rec: {metrics['recall']:.4f}")
-            elif (epoch + 1) % 10 == 0:
-                print(f"  Epoch {epoch+1}/{self.epochs} — Loss: {train_loss:.4f}")
+                postfix.update({"F1": f"{metrics['f1']:.4f}",
+                                "AUC": f"{metrics['auc']:.4f}"})
+
+            epoch_bar.set_postfix(postfix)
 
         # Restore best model
         if best_state is not None:
@@ -207,7 +215,13 @@ class PredictorTrainer:
         return self.model
 
     def _evaluate(self, loader, y_true):
-        """Evaluate model on validation/test set."""
+        """
+        Evaluate model on validation/test set.
+
+        Uses precision-recall curve to find the threshold that maximises F1,
+        rather than a fixed 0.5 (which is suboptimal when pos_weight has shifted
+        the decision boundary for imbalanced classes).
+        """
         self.model.eval()
         all_proba = []
         with torch.no_grad():
@@ -218,13 +232,29 @@ class PredictorTrainer:
                 all_proba.extend(proba.cpu().numpy())
 
         y_proba = np.array(all_proba)
-        y_pred = (y_proba >= 0.5).astype(int)
+
+        if len(np.unique(y_true)) > 1:
+            auc = roc_auc_score(y_true, y_proba)
+            precisions, recalls, thresholds = precision_recall_curve(y_true, y_proba)
+            f1_scores = np.where(
+                (precisions + recalls) > 0,
+                2 * precisions * recalls / (precisions + recalls),
+                0.0,
+            )
+            best_idx = np.argmax(f1_scores[:-1])
+            optimal_threshold = float(thresholds[best_idx])
+        else:
+            auc = 0.0
+            optimal_threshold = 0.5
+
+        y_pred = (y_proba >= optimal_threshold).astype(int)
 
         return {
             "f1": f1_score(y_true, y_pred, zero_division=0),
             "precision": precision_score(y_true, y_pred, zero_division=0),
             "recall": recall_score(y_true, y_pred, zero_division=0),
-            "auc": roc_auc_score(y_true, y_proba) if len(np.unique(y_true)) > 1 else 0,
+            "auc": auc,
+            "optimal_threshold": optimal_threshold,
         }
 
     def save_model(self, filepath=None):

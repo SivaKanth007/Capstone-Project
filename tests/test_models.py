@@ -138,6 +138,23 @@ class TestXGBoostRUL:
         assert len(model.feature_importance) == X.shape[1]
 
 
+class TestPredictorEvaluate:
+    def test_evaluate_finds_best_threshold(self):
+        """_evaluate must sweep thresholds and return optimal_threshold key."""
+        from src.models.lstm_predictor import PredictorTrainer
+        from torch.utils.data import DataLoader, TensorDataset
+        X = np.random.randn(50, 30, 14).astype(np.float32)
+        y = np.zeros(50, dtype=np.float32)
+        y[:5] = 1.0
+        model = LSTMPredictor(input_dim=14)
+        trainer = PredictorTrainer(model, epochs=1, batch_size=32)
+        loader = DataLoader(TensorDataset(torch.FloatTensor(X), torch.FloatTensor(y)),
+                            batch_size=32)
+        metrics = trainer._evaluate(loader, y)
+        assert "optimal_threshold" in metrics
+        assert 0.0 < metrics["optimal_threshold"] < 1.0
+
+
 class TestFeatureEngineering:
     def test_engineer_features_no_cycle_norm(self):
         """engineer_features must not produce cycle_norm or cycle_squared (leaky features)."""
