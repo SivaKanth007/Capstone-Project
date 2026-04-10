@@ -14,6 +14,23 @@ import joblib
 import config
 
 
+def nasa_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """
+    NASA C-MAPSS asymmetric scoring function.
+
+    Penalises late predictions (underestimated RUL, d >= 0) more than early
+    predictions (overestimated RUL, d < 0), matching the published benchmark.
+
+    d = y_pred - y_true
+    s_i = exp(-d/13) - 1  if d < 0  (early prediction)
+    s_i = exp(d/10)  - 1  if d >= 0 (late prediction)
+    Score = sum(s_i)  — lower is better
+    """
+    d = np.asarray(y_pred, dtype=np.float64) - np.asarray(y_true, dtype=np.float64)
+    scores = np.where(d < 0, np.exp(-d / 13) - 1, np.exp(d / 10) - 1)
+    return float(np.sum(scores))
+
+
 class XGBoostRUL:
     """
     XGBoost-based Remaining Useful Life regression model.
@@ -123,54 +140,90 @@ class XGBoostRUL:
             "r2": r2,
             "within_10_pct": within_10,
             "within_20_pct": within_20,
+            "nasa_score": nasa_score(y_true, y_pred),
         }
 
         print(f"\n[XGBOOST] Evaluation Results:")
-        print(f"  RMSE:  {rmse:.2f} cycles")
-        print(f"  MAE:   {mae:.2f} cycles")
-        print(f"  R²:    {r2:.4f}")
+        print(f"  RMSE:        {rmse:.2f} cycles")
+        print(f"  MAE:         {mae:.2f} cycles")
+        print(f"  R²:          {r2:.4f}")
+        print(f"  NASA Score:  {metrics['nasa_score']:.2f}  (lower = better)")
         print(f"  Within ±10 cycles: {within_10:.1f}%")
         print(f"  Within ±20 cycles: {within_20:.1f}%")
 
         return metrics
 
-    def walk_forward_cv(self, X, y, n_splits=5):
+    def walk_forward_cv(self, X, y, n_splits=5, unit_ids=None):
         """
         Walk-forward time-series cross-validation.
 
-        Simulates real deployment where model is trained on past data
-        and tested on future data.
+        When `unit_ids` is provided, splits are made at unit boundaries so that
+        no window from the same engine appears in both train and test folds.
+        When omitted, falls back to positional splitting with a warning.
+
+        Parameters
+        ----------
+        X : np.ndarray or pd.DataFrame
+        y : np.ndarray
+        n_splits : int
+        unit_ids : np.ndarray or None
+            1-D array of unit IDs parallel to X/y rows. Pass this to avoid
+            fold leakage when rows from the same unit span a fold boundary.
         """
         X_arr = X.values if isinstance(X, pd.DataFrame) else X
-        n = len(X_arr)
-        fold_size = n // (n_splits + 1)
 
-        results = []
-        for i in range(n_splits):
-            train_end = fold_size * (i + 2)
-            test_start = train_end
-            test_end = min(test_start + fold_size, n)
-
-            if test_end <= test_start:
-                break
-
-            X_tr, y_tr = X_arr[:train_end], y[:train_end]
-            X_te, y_te = X_arr[test_start:test_end], y[test_start:test_end]
-
-            model = xgb.XGBRegressor(**self.params)
-            model.fit(X_tr, y_tr, verbose=0)
-            y_pred = np.clip(model.predict(X_te), 0, config.MAX_RUL)
-
-            rmse = np.sqrt(mean_squared_error(y_te, y_pred))
-            mae = mean_absolute_error(y_te, y_pred)
-            results.append({"fold": i+1, "rmse": rmse, "mae": mae, "n_train": len(X_tr), "n_test": len(X_te)})
+        if unit_ids is not None:
+            unique_units = np.unique(unit_ids)
+            fold_size = max(1, len(unique_units) // (n_splits + 1))
+            results = []
+            for i in range(n_splits):
+                train_units = unique_units[: fold_size * (i + 2)]
+                test_units = unique_units[fold_size * (i + 2): fold_size * (i + 3)]
+                if len(test_units) == 0:
+                    break
+                train_mask = np.isin(unit_ids, train_units)
+                test_mask = np.isin(unit_ids, test_units)
+                X_tr, y_tr = X_arr[train_mask], y[train_mask]
+                X_te, y_te = X_arr[test_mask], y[test_mask]
+                model = xgb.XGBRegressor(**self.params)
+                model.fit(X_tr, y_tr, verbose=0)
+                y_pred = np.clip(model.predict(X_te), 0, config.MAX_RUL)
+                rmse = np.sqrt(mean_squared_error(y_te, y_pred))
+                mae = mean_absolute_error(y_te, y_pred)
+                results.append({
+                    "fold": i + 1, "rmse": rmse, "mae": mae,
+                    "n_train": len(X_tr), "n_test": len(X_te),
+                })
+        else:
+            print("[XGBOOST] WARNING: walk_forward_cv called without unit_ids — "
+                  "splitting on row index. Windows from the same engine may appear "
+                  "in both train and test folds. Pass unit_ids to avoid this.")
+            n = len(X_arr)
+            fold_size = n // (n_splits + 1)
+            results = []
+            for i in range(n_splits):
+                train_end = fold_size * (i + 2)
+                test_start = train_end
+                test_end = min(test_start + fold_size, n)
+                if test_end <= test_start:
+                    break
+                X_tr, y_tr = X_arr[:train_end], y[:train_end]
+                X_te, y_te = X_arr[test_start:test_end], y[test_start:test_end]
+                model = xgb.XGBRegressor(**self.params)
+                model.fit(X_tr, y_tr, verbose=0)
+                y_pred = np.clip(model.predict(X_te), 0, config.MAX_RUL)
+                rmse = np.sqrt(mean_squared_error(y_te, y_pred))
+                mae = mean_absolute_error(y_te, y_pred)
+                results.append({
+                    "fold": i + 1, "rmse": rmse, "mae": mae,
+                    "n_train": len(X_tr), "n_test": len(X_te),
+                })
 
         df_results = pd.DataFrame(results)
         print(f"\n[XGBOOST] Walk-Forward CV Results ({n_splits} folds):")
         print(df_results.to_string(index=False))
         print(f"\n  Mean RMSE: {df_results['rmse'].mean():.2f} ± {df_results['rmse'].std():.2f}")
         print(f"  Mean MAE:  {df_results['mae'].mean():.2f} ± {df_results['mae'].std():.2f}")
-
         return df_results
 
     def save(self, filepath=None):

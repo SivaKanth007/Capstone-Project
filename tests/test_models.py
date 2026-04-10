@@ -129,6 +129,33 @@ class TestXGBoostRUL:
         assert "r2" in metrics
         assert metrics["rmse"] >= 0
 
+    def test_evaluate_includes_nasa_score(self, flat_features):
+        X, y = flat_features
+        model = XGBoostRUL(params={"n_estimators": 10, "max_depth": 3})
+        model.train(X[:150], y[:150])
+        metrics = model.evaluate(X[150:], y[150:])
+        assert "nasa_score" in metrics
+        assert metrics["nasa_score"] >= 0
+
+    def test_nasa_score_penalises_late_more(self):
+        from src.models.xgboost_rul import nasa_score
+        y_true = np.array([50.0])
+        # y_pred=60 > y_true=50 → d>0 → late detection (model overestimates remaining life)
+        score_late = nasa_score(y_true, np.array([60.0]))
+        # y_pred=40 < y_true=50 → d<0 → early detection (model underestimates remaining life)
+        score_early = nasa_score(y_true, np.array([40.0]))
+        assert score_late > score_early
+
+    def test_walk_forward_cv_unit_aware(self, flat_features):
+        X, y = flat_features
+        model = XGBoostRUL(params={"n_estimators": 10, "max_depth": 3})
+        model.train(X[:150], y[:150])
+        # 200 rows, 10 units of 20 rows each
+        unit_ids = np.repeat(np.arange(10), 20)
+        results = model.walk_forward_cv(X, y, n_splits=3, unit_ids=unit_ids)
+        assert len(results) > 0
+        assert "rmse" in results.columns
+
     def test_feature_importance(self, flat_features):
         X, y = flat_features
         model = XGBoostRUL(params={"n_estimators": 10, "max_depth": 3})
