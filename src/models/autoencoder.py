@@ -186,7 +186,8 @@ class AutoencoderTrainer:
         train_tensor = torch.FloatTensor(X_train)
         train_loader = DataLoader(
             TensorDataset(train_tensor, train_tensor),
-            batch_size=self.batch_size, shuffle=True
+            batch_size=self.batch_size, shuffle=True,
+            num_workers=config.NUM_WORKERS, pin_memory=config.PIN_MEMORY,
         )
 
         val_loader = None
@@ -194,21 +195,25 @@ class AutoencoderTrainer:
             val_tensor = torch.FloatTensor(X_val)
             val_loader = DataLoader(
                 TensorDataset(val_tensor, val_tensor),
-                batch_size=self.batch_size, shuffle=False
+                batch_size=self.batch_size, shuffle=False,
+                num_workers=config.NUM_WORKERS, pin_memory=config.PIN_MEMORY,
             )
 
         best_val_loss = float("inf")
         best_state = None
 
         print(f"\n[AUTOENCODER] Training on {config.DEVICE} "
-              f"({len(X_train)} samples, {self.epochs} epochs)")
+              f"({len(X_train)} samples, {self.epochs} epochs, "
+              f"batch_size={self.batch_size})")
 
-        for epoch in range(self.epochs):
+        n_batches = len(train_loader)
+        epoch_bar = tqdm(range(self.epochs), desc="[AE] Epochs", unit="epoch")
+        for epoch in epoch_bar:
             # Training
             self.model.train()
             train_loss = 0
-            for batch_x, _ in train_loader:
-                batch_x = batch_x.to(config.DEVICE)
+            for batch_idx, (batch_x, _) in enumerate(train_loader, 1):
+                batch_x = batch_x.to(config.DEVICE, non_blocking=config.PIN_MEMORY)
                 reconstruction = self.model(batch_x)
                 loss = self.criterion(reconstruction, batch_x)
 
@@ -217,6 +222,8 @@ class AutoencoderTrainer:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 self.optimizer.step()
                 train_loss += loss.item() * len(batch_x)
+                epoch_bar.set_postfix(batch=f"{batch_idx}/{n_batches}",
+                                      loss=f"{loss.item():.6f}")
 
             train_loss /= len(X_train)
             self.train_history.append(train_loss)
@@ -228,7 +235,7 @@ class AutoencoderTrainer:
                 val_loss = 0
                 with torch.no_grad():
                     for batch_x, _ in val_loader:
-                        batch_x = batch_x.to(config.DEVICE)
+                        batch_x = batch_x.to(config.DEVICE, non_blocking=config.PIN_MEMORY)
                         reconstruction = self.model(batch_x)
                         loss = self.criterion(reconstruction, batch_x)
                         val_loss += loss.item() * len(batch_x)
@@ -240,12 +247,11 @@ class AutoencoderTrainer:
                     best_val_loss = val_loss
                     best_state = {k: v.cpu().clone() for k, v in self.model.state_dict().items()}
 
-            # Logging
-            if (epoch + 1) % 5 == 0 or epoch == 0:
-                msg = f"  Epoch {epoch+1}/{self.epochs} — Train Loss: {train_loss:.6f}"
-                if val_loss is not None:
-                    msg += f" | Val Loss: {val_loss:.6f}"
-                print(msg)
+            # Update epoch progress bar
+            postfix = {"train_loss": f"{train_loss:.6f}"}
+            if val_loss is not None:
+                postfix["val_loss"] = f"{val_loss:.6f}"
+            epoch_bar.set_postfix(postfix)
 
         # Restore best model
         if best_state is not None:
@@ -253,10 +259,22 @@ class AutoencoderTrainer:
             self.model.to(config.DEVICE)
             print(f"[AUTOENCODER] Restored best model (val_loss={best_val_loss:.6f})")
 
-        # Set anomaly threshold
+        # Set anomaly threshold from validation scores (not training scores).
+        # Training reconstruction errors are lower/less variable because the
+        # model has partially memorized X_train — val scores better represent
+        # the threshold that will generalize to unseen machines.
         self.model.eval()
-        train_scores = self.model.compute_anomaly_score(torch.FloatTensor(X_train))
-        self.model.set_threshold(train_scores)
+        if X_val is not None:
+            threshold_data = torch.FloatTensor(X_val)
+            threshold_source = "val"
+        else:
+            threshold_data = torch.FloatTensor(X_train)
+            threshold_source = "train (no val provided)"
+            print("[AUTOENCODER] WARNING: No X_val provided — threshold set from training "
+                  "data. This may not generalize to unseen machines.")
+        threshold_scores = self.model.compute_anomaly_score(threshold_data)
+        self.model.set_threshold(threshold_scores)
+        print(f"[AUTOENCODER] Threshold derived from: {threshold_source}")
 
         return self.model
 

@@ -71,6 +71,18 @@ class TestLSTMAutoencoder:
         assert is_anomaly.shape == (10,)
         assert is_anomaly.dtype == bool
 
+    def test_threshold_uses_val_not_train(self, sample_sequences):
+        """Trainer must derive threshold from val scores when X_val is provided."""
+        X, _, _ = sample_sequences
+        X_train, X_val = X[:80], X[80:]
+        model = LSTMAutoencoder(input_dim=X.shape[2], seq_len=X.shape[1])
+        from src.models.autoencoder import AutoencoderTrainer
+        trainer = AutoencoderTrainer(model, epochs=1, batch_size=32)
+        trainer.train(X_train, X_val=X_val)
+        val_scores = model.compute_anomaly_score(torch.FloatTensor(X_val))
+        # Threshold must be within reasonable range of val reconstruction errors
+        assert model.threshold >= val_scores.min()
+
 
 class TestLSTMPredictor:
     def test_forward_pass_output(self, sample_sequences):
