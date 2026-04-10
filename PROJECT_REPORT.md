@@ -196,7 +196,8 @@ The system follows a **five-stage pipeline** from raw sensor data to maintenance
 ├── dashboard/
 │   └── app.py                    # Streamlit interactive dashboard
 ├── notebooks/
-│   └── Smart_Industrial_Maintenance_Full_Pipeline.ipynb  # IMS bearing pipeline
+│   ├── Smart_Industrial_Maintenance_Repo_Pipeline.ipynb       # IMS bearing pipeline (repo-integrated)
+│   └── Smart_Industrial_Maintenance_Standalone_Pipeline.ipynb # IMS bearing pipeline (self-contained)
 └── tests/                        # Unit tests (4 modules)
     ├── test_preprocess.py
     ├── test_models.py
@@ -369,15 +370,16 @@ The inference pipeline (`scripts/run_pipeline.py`) processes new sensor data thr
 
 ### 6.4 Testing
 
-The test suite (`tests/`) contains **27 unit tests** across 3 modules:
+The test suite (`tests/`) contains **43 unit tests** across 4 modules:
 
 | Module | Tests | Coverage |
 |--------|-------|----------|
-| `test_preprocess.py` | 8 tests | Sensor filtering, normalization, windowing, splits |
-| `test_models.py` | 12 tests | Autoencoder forward/backward, predictor attention, XGBoost, survival |
-| `test_optimizer.py` | 7 tests | MILP scheduling, crew constraints, critical machine handling |
+| `test_preprocess.py` | 15 tests | Sensor filtering, normalization, windowing, temporal splits, binary labels, full pipeline, synthetic augmentation |
+| `test_models.py` | 9 tests | Autoencoder forward pass / anomaly detection, predictor attention, XGBoost train/evaluate/features |
+| `test_optimizer.py` | 8 tests | MILP scheduling, crew capacity, critical machine mandatory scheduling, no duplicates, Gantt data |
+| `test_ims.py` | 11 tests | IMS time/frequency feature extraction, pseudo-RUL labels, binary labels, dynamic variance filtering, model compatibility |
 
-**Result:** All 27 tests pass.
+**Result:** All 43 tests pass.
 
 ---
 
@@ -520,7 +522,7 @@ These tools enable reliability engineers to validate model predictions and ident
 
 ## 10. Interactive Dashboard
 
-A Streamlit-based dashboard (`dashboard/app.py`) provides real-time fleet monitoring across 5 pages. Launch with:
+A Streamlit-based dashboard (`dashboard/app.py`) provides real-time fleet monitoring across **7 pages** (Phase 7 enhancement). Launch with:
 
 ```bash
 streamlit run dashboard/app.py
@@ -544,13 +546,31 @@ Visualizes the MILP optimizer output as an interactive **Gantt chart** showing s
 
 ![Maintenance Schedule](assets/dashboard_maintenance_schedule.png)
 
-### 10.4 Maintenance History
+### 10.4 Model Performance (Phase 7)
+
+Dedicated model performance dashboard showing:
+- **Summary metrics cards** — F1-Score, AUC-ROC, RMSE, R², C-Index, and cost savings
+- **Per-model breakdown** — Detailed metrics for all 4 ML models (Autoencoder, LSTM Predictor, XGBoost, Bayesian Survival)
+- **Monte Carlo simulation results** — Side-by-side comparison of Reactive, Scheduled, and Risk-Based maintenance policies with cost, downtime, availability, and failure count metrics
+- **Business impact callouts** — Cost reduction, failure reduction, and availability improvement
+
+### 10.5 Explainability & AI Insights (Phase 7)
+
+Interpretability dashboard providing:
+- **XGBoost feature importance** — Ranked bar chart of the top 15 most influential engineered features (loaded live from saved model)
+- **Sensor contribution analysis** — Aggregated sensor-level SHAP importance (mean absolute contribution per sensor)
+- **Anomaly detection summary** — Autoencoder threshold, anomaly rate, and reconstruction error interpretation
+- **Attention mechanism description** — How temporal attention weights identify which recent cycles drove the failure prediction
+- **Model interpretation guide** — Operator-facing explanation of each model's role, output, and action threshold
+- **Risk calculation explanation** — Step-by-step formula showing how anomaly score and failure probability combine into the final risk score
+
+### 10.6 Maintenance History
 
 Displays historical maintenance logs: total events, total cost, average downtime hours, cost breakdown by failure type (bar chart), and planned vs unplanned ratio (pie chart).
 
 ![Maintenance History](assets/dashboard_maintenance_history.png)
 
-### 10.5 Operational Context
+### 10.7 Operational Context
 
 Provides fleet composition by machine type and priority level, a bubble scatter plot of total cycles vs operating temperature, and a full machine specifications table.
 
@@ -616,7 +636,7 @@ Most importantly, the system bridges the critical gap between *failure predictio
 5. **Real-world validation** — Partner with manufacturing facilities for pilot deployment with actual maintenance data
 6. **Reinforcement learning** — Explore RL-based scheduling to learn optimal policies from historical maintenance outcomes
 
-> **Note:** IMS Bearing Dataset integration has been completed — the full pipeline notebook (`Smart_Industrial_Maintenance_Full_Pipeline.ipynb`) trains all 4 models on real vibration data from NASA IMS bearing experiments.
+> **Note:** IMS Bearing Dataset integration has been completed. Both notebooks (`Smart_Industrial_Maintenance_Repo_Pipeline.ipynb` and `Smart_Industrial_Maintenance_Standalone_Pipeline.ipynb`) train all 4 models on real vibration data from NASA IMS bearing experiments with full visualization and dashboard-aligned outputs.
 
 ---
 

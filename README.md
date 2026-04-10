@@ -1,10 +1,12 @@
-# 🏭 Smart Industrial Maintenance System
+# Smart Industrial Maintenance System
 
-> **FSE 570 Data Science Capstone** — Arizona State University
+> **FSE 570 Data Science Capstone** — Arizona State University, Ira A. Fulton Schools of Engineering
 
-An end-to-end AI system that detects anomalies in industrial sensors, predicts machine failures, and generates optimized maintenance schedules. Supports both the **NASA C-MAPSS turbofan** dataset and the **NASA IMS Bearing** vibration dataset.
+An end-to-end AI-powered maintenance decision support system that detects anomalies in industrial sensors, predicts machine failures with calibrated uncertainty, estimates Remaining Useful Life (RUL), and generates optimized crew-constrained maintenance schedules. Validated on two NASA datasets: **C-MAPSS turbofan** and **IMS Bearing** vibration data.
 
-## 👥 Team
+---
+
+## Team
 
 | Name | Role |
 |------|------|
@@ -16,94 +18,34 @@ An end-to-end AI system that detects anomalies in industrial sensors, predicts m
 
 ---
 
-## 🚀 Quick Start (Fresh Install)
+## System Pipeline
 
-### Step 1 — Clone the Repository
-
-```bash
-git clone https://github.com/SivaKanth007/Capstone-Project.git
-cd Capstone-Project
 ```
-
-### Step 2 — Install Dependencies
-
-```bash
-pip install -e ".[test]"         # recommended: editable install
-# OR
-pip install -r requirements.txt  # classic approach
+Raw Sensor Data
+     │
+     ▼
+Preprocessing & Feature Engineering
+     │
+     ▼
+ML Model Suite
+ ├── LSTM Temporal Autoencoder     (anomaly detection)
+ ├── LSTM Classifier + Attention   (failure probability)
+ ├── XGBoost Regression            (RUL estimation)
+ └── Bayesian Weibull Survival     (uncertainty quantification)
+     │
+     ▼
+MILP Maintenance Scheduler
+     │
+     ▼
+Monte Carlo Policy Simulation
+     │
+     ▼
+Streamlit Dashboard (7 pages)
 ```
-
-> **Requires Python 3.9 or higher.**  
-> No GPU needed — everything runs on CPU. GPU (CUDA) is auto-detected if available.  
-> For GPU support: `make install-gpu` or `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126`
-
-### Step 3 — Train All Models
-
-```bash
-python scripts/train_all.py
-```
-
-This single command does everything:
-- Downloads the NASA C-MAPSS turbofan dataset automatically
-- Generates synthetic maintenance logs
-- Engineers 200+ features from sensor data
-- Trains 4 ML models (LSTM Autoencoder, LSTM Predictor, XGBoost, Bayesian Survival)
-- Runs Monte Carlo simulation comparing maintenance policies
-
-**⏱ Takes ~5 minutes on CPU. Using the NVIDIA RTX 3050 Ti Laptop GPU it completes significantly faster!**
-
-### Step 3b — Run IMS Bearing Pipeline (Notebook)
-
-Open `notebooks/Smart_Industrial_Maintenance_Full_Pipeline.ipynb` in Jupyter and run all cells. This pipeline:
-- Downloads the NASA IMS Bearing vibration dataset (~2 GB) via `kagglehub`
-- Extracts time-domain and frequency-domain features from raw vibration signals
-- Trains the same 4-model suite on bearing degradation data
-- Runs MILP scheduling and Monte Carlo simulation
-
-### Step 4 — Run Inference Pipeline
-
-```bash
-python scripts/run_pipeline.py
-```
-
-Loads the trained models and produces maintenance recommendations saved to `data/processed/recommendations.csv`.
-
-### Step 5 — Launch Dashboard
-
-```bash
-streamlit run dashboard/app.py
-```
-
-Opens at **http://localhost:8501** in your browser.
-
-### Step 6 — Run Tests
-
-```bash
-python -m pytest
-```
-
-All 38 unit tests should pass.
 
 ---
 
-## 📊 What This System Does
-
-```
-Raw Sensor Data → Preprocessing → ML Models → MILP Optimizer → Dashboard
-```
-
-| Component | What It Does |
-|-----------|-------------|
-| **Anomaly Detection** | LSTM Autoencoder flags unusual sensor patterns |
-| **Failure Prediction** | LSTM Classifier estimates failure probability (next 30 cycles) |
-| **RUL Estimation** | XGBoost predicts Remaining Useful Life in cycles |
-| **Uncertainty** | Bayesian Weibull model gives 90%/95% confidence intervals |
-| **Scheduling** | MILP optimizer assigns maintenance to crews optimally |
-| **Dashboard** | Streamlit app shows live fleet health and schedule |
-
----
-
-## 📈 Results
+## Performance Results
 
 | Model | Metric | Value |
 |-------|--------|-------|
@@ -114,138 +56,316 @@ Raw Sensor Data → Preprocessing → ML Models → MILP Optimizer → Dashboard
 | Bayesian Survival | C-Index | **0.992** |
 | MILP Optimization | Cost Reduction | **97.4%** vs reactive |
 | MILP Optimization | Downtime Reduction | **72.4%** vs reactive |
+| Monte Carlo Simulation | Failure Reduction | **99.0%** vs reactive |
 
 ---
 
-## 📁 Project Structure
+## Quick Start
+
+### Requirements
+
+- Python 3.9 or higher
+- No GPU required — CUDA is auto-detected and used if available
+- For GPU support: `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126`
+
+### Step 1 — Clone and Install
+
+```bash
+git clone https://github.com/SivaKanth007/Capstone-Project.git
+cd Capstone-Project
+
+pip install -e ".[test]"
+# OR
+pip install -r requirements.txt
+```
+
+### Step 2 — Train C-MAPSS Models
+
+```bash
+python scripts/train_all.py
+# OR
+make train
+```
+
+This single command:
+- Downloads the NASA C-MAPSS turbofan dataset automatically (no manual steps)
+- Generates synthetic maintenance logs and operational context
+- Engineers 200+ features from sensor data
+- Trains all 4 ML models
+- Runs Monte Carlo policy simulation (50 runs, 50 machines)
+- Saves all model artifacts to `models/saved/`
+
+**Training time:** ~5 minutes on CPU. Significantly faster on GPU.
+
+### Step 3 — Run Inference
+
+```bash
+python scripts/run_pipeline.py
+# OR
+make inference
+```
+
+Loads all saved models, scores all machines, and writes maintenance recommendations to `data/processed/recommendations.csv`.
+
+### Step 4 — Launch Dashboard
+
+```bash
+streamlit run dashboard/app.py
+# OR
+make dashboard
+```
+
+Opens at **http://localhost:8501**. Seven pages: Fleet Overview, Risk Assessment, Maintenance Schedule, Model Performance, Explainability & AI Insights, Maintenance History, Operational Context.
+
+### Step 5 — Run Tests
+
+```bash
+python -m pytest
+# OR
+make test
+```
+
+All **43 unit tests** across 4 modules should pass.
+
+---
+
+## IMS Bearing Pipeline
+
+To run the IMS Bearing dataset pipeline (vibration signal data), open one of the notebooks in Jupyter:
+
+- `notebooks/Smart_Industrial_Maintenance_Repo_Pipeline.ipynb` — Repository-integrated pipeline
+- `notebooks/Smart_Industrial_Maintenance_Standalone_Pipeline.ipynb` — Self-contained notebook (no local src imports)
+
+Both notebooks:
+- Download the NASA IMS Bearing dataset (~2 GB) via `kagglehub` automatically
+- Extract time-domain and frequency-domain features from raw vibration signals
+- Train the same 4-model suite on bearing degradation data
+- Run MILP scheduling and Monte Carlo simulation
+- Produce showcase-ready, consistent visualizations
+
+Alternatively, train via script:
+```bash
+python scripts/train_ims.py
+# OR
+make train-ims
+```
+
+---
+
+## Make Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `make install` | Install project in editable mode |
+| `make install-gpu` | Install with CUDA GPU support |
+| `make train` | Train C-MAPSS models (downloads data automatically) |
+| `make train-ims` | Train IMS bearing models |
+| `make inference` | Run inference and generate recommendations |
+| `make dashboard` | Launch Streamlit dashboard |
+| `make test` | Run all 43 unit tests |
+| `make clean` | Remove caches and `__pycache__` directories |
+| `make help` | Show all available commands |
+
+---
+
+## Project Structure
 
 ```
 Capstone-Project/
-├── config.py                    # All settings (paths, hyperparameters)
-├── pyproject.toml               # Python packaging (pip install -e .)
-├── Makefile                     # Standardized commands (make train, make test, etc.)
-├── requirements.txt             # Python dependencies
-├── pytest.ini                   # Test configuration
-├── PROJECT_REPORT.md            # Full project report
+│
+├── config.py                        # All settings: paths, hyperparameters, constants
+├── pyproject.toml                   # Python packaging (pip install -e .)
+├── Makefile                         # Standardized commands (make train, make test, etc.)
+├── requirements.txt                 # Python dependencies
+├── pytest.ini                       # Test configuration
+├── README.md                        # This file
+├── PROJECT_REPORT.md                # Full capstone project report
 │
 ├── scripts/
-│   ├── train_all.py             # Train C-MAPSS models (run this first)
-│   ├── train_ims.py             # Train IMS bearing models
-│   └── run_pipeline.py          # Run inference and generate recommendations
+│   ├── train_all.py                 # End-to-end C-MAPSS training orchestrator
+│   ├── train_ims.py                 # IMS bearing model training
+│   └── run_pipeline.py             # Full inference pipeline → recommendations.csv
 │
 ├── dashboard/
-│   └── app.py                   # Streamlit dashboard (5 pages)
+│   └── app.py                       # Streamlit dashboard (7 pages)
 │
 ├── src/
-│   ├── data/                    # Data download, preprocessing, features
-│   │   ├── download.py          # C-MAPSS dataset download
-│   │   ├── ims_download.py      # IMS bearing dataset download (kagglehub)
-│   │   ├── ims_preprocess.py    # IMS vibration signal preprocessing
-│   │   ├── preprocess.py        # C-MAPSS preprocessing
-│   │   ├── feature_engineering.py
-│   │   └── synthetic_generator.py
-│   ├── models/                  # LSTM, XGBoost, Bayesian Survival models
-│   ├── explainability/          # SHAP + attention visualization
-│   ├── optimization/            # MILP maintenance scheduler
-│   └── evaluation/              # Monte Carlo simulation
+│   ├── data/
+│   │   ├── download.py              # NASA C-MAPSS dataset download
+│   │   ├── ims_download.py          # IMS bearing dataset download (kagglehub)
+│   │   ├── ims_preprocess.py        # IMS vibration signal preprocessing + feature extraction
+│   │   ├── preprocess.py            # C-MAPSS cleaning, normalization, windowing
+│   │   ├── feature_engineering.py  # 200+ rolling, trend, lag, interaction features
+│   │   ├── synthetic_generator.py  # Maintenance logs + operational context generation
+│   │   └── synthetic_cmapss.py     # Synthetic C-MAPSS augmentation
+│   │
+│   ├── models/
+│   │   ├── autoencoder.py           # LSTM Temporal Autoencoder (anomaly detection)
+│   │   ├── lstm_predictor.py        # LSTM Classifier with Attention (failure probability)
+│   │   ├── xgboost_rul.py           # XGBoost RUL regression
+│   │   └── bayesian_survival.py    # Bayesian Weibull Survival Analysis
+│   │
+│   ├── explainability/
+│   │   ├── shap_analysis.py         # SHAP feature attribution (TreeSHAP + DeepSHAP)
+│   │   └── attention_viz.py         # Temporal attention heatmap visualization
+│   │
+│   ├── optimization/
+│   │   └── milp_scheduler.py        # PuLP MILP maintenance scheduler
+│   │
+│   └── evaluation/
+│       └── simulation.py            # Monte Carlo maintenance policy comparison
 │
-├── tests/                       # Unit tests (4 modules, 38 tests)
+├── tests/                           # Unit tests — 43 tests across 4 modules
+│   ├── test_preprocess.py           # 15 tests: C-MAPSS preprocessing pipeline
+│   ├── test_models.py               # 9 tests: autoencoder, predictor, XGBoost, survival
+│   ├── test_optimizer.py            # 8 tests: MILP scheduling, crew constraints
+│   └── test_ims.py                  # 11 tests: IMS feature extraction + model compatibility
 │
 ├── notebooks/
-│   └── Smart_Industrial_Maintenance_Full_Pipeline.ipynb  # IMS bearing pipeline
+│   ├── Smart_Industrial_Maintenance_Repo_Pipeline.ipynb       # IMS pipeline (repo-integrated)
+│   └── Smart_Industrial_Maintenance_Standalone_Pipeline.ipynb # IMS pipeline (self-contained)
 │
-├── Docs/                        # Project documentation and presentations
+├── Docs/                            # Project documentation and presentations
 │
-├── data/                        # Created automatically after training
-│   ├── raw/                     # NASA C-MAPSS dataset
-│   ├── raw_ims/                 # NASA IMS Bearing dataset (3 experiments)
-│   ├── processed/               # Preprocessed sequences + recommendations
-│   └── synthetic/               # Generated maintenance logs
+├── data/                            # Auto-created after training
+│   ├── raw/                         # NASA C-MAPSS dataset files
+│   ├── raw_ims/                     # NASA IMS Bearing dataset (3 experiments)
+│   ├── processed/                   # Preprocessed sequences + recommendations.csv
+│   ├── processed_ims/               # IMS preprocessed features
+│   └── synthetic/                   # Generated maintenance logs + operational context
 │
-├── models/saved/                # Trained model files
-│   ├── autoencoder.pt           # C-MAPSS LSTM Autoencoder
-│   ├── lstm_predictor.pt        # C-MAPSS LSTM Predictor
-│   ├── xgboost_rul.pkl          # C-MAPSS XGBoost RUL
-│   ├── bayesian_survival.pkl    # C-MAPSS Weibull Survival
-│   ├── preprocessor.pkl         # MinMaxScaler + features
-│   ├── ims_autoencoder.pt       # IMS LSTM Autoencoder
-│   ├── ims_xgboost.pkl          # IMS XGBoost RUL
-│   └── ims_survival.pkl         # IMS Weibull Survival
+├── models/saved/                    # Trained model artifacts
+│   ├── autoencoder.pt               # C-MAPSS LSTM Autoencoder weights + threshold
+│   ├── lstm_predictor.pt            # C-MAPSS LSTM Predictor weights + attention
+│   ├── xgboost_rul.pkl              # C-MAPSS XGBoost model + feature importance
+│   ├── xgboost_model.pkl            # (alias)
+│   ├── bayesian_survival.pkl        # C-MAPSS Weibull AFT model
+│   ├── survival_model.pkl           # (alias)
+│   ├── preprocessor.pkl             # MinMaxScaler + active feature column config
+│   ├── ims_autoencoder.pt           # IMS LSTM Autoencoder
+│   ├── ims_predictor.pt             # IMS LSTM Predictor
+│   ├── ims_xgboost.pkl              # IMS XGBoost RUL
+│   └── ims_survival.pkl             # IMS Weibull Survival
 │
-└── assets/                      # Dashboard screenshots
+└── assets/                          # Dashboard screenshots for documentation
 ```
 
 ---
 
-## ⚡ GPU Support
+## Dashboard Pages
 
-The system automatically uses a CUDA GPU if available:
-
-```python
-# config.py — detected automatically
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-```
-
-For the IMS Bearing pipeline, open `notebooks/Smart_Industrial_Maintenance_Full_Pipeline.ipynb`.
+| Page | Description |
+|------|-------------|
+| **Fleet Overview** | Aggregate fleet health: machines monitored, near-failure count, avg RUL, RUL distribution histogram, per-unit health bar chart |
+| **Risk Assessment** | Per-machine failure risk (Critical / Elevated / Normal), color-coded table, risk distribution pie chart |
+| **Maintenance Schedule** | MILP optimizer output as interactive Gantt chart, scheduled slot details table |
+| **Model Performance** | Live model metrics cards (F1, AUC, RMSE, R², C-Index), per-model performance breakdown, Monte Carlo simulation results |
+| **Explainability & AI Insights** | XGBoost feature importance ranking, SHAP-based sensor contribution analysis, attention pattern description, model interpretation guide |
+| **Maintenance History** | Historical maintenance logs: total events, total cost, avg downtime, cost-by-failure-type bar chart, planned vs unplanned ratio |
+| **Operational Context** | Fleet composition by machine type and priority, cycles vs temperature scatter, machine specifications table |
 
 ---
 
-## 🔴🟡🟢 Risk Levels
+## Risk Levels
 
 | Level | Condition | Action |
 |-------|-----------|--------|
-| 🔴 Critical | Risk ≥ 70% | Service Immediately |
-| 🟡 Elevated | Risk 40–70% | Schedule Soon |
-| 🟢 Normal | Risk < 40% | Continue Monitoring |
+| Critical | Risk >= 70% | Service Immediately |
+| Elevated | Risk 40–70% | Schedule Soon |
+| Normal | Risk < 40% | Continue Monitoring |
 
 ---
 
-## 🛠 Troubleshooting
+## Key Configuration Parameters
+
+All hyperparameters are centralized in `config.py`.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `SEQUENCE_LENGTH` | 30 | LSTM sliding window size (cycles) |
+| `MAX_RUL` | 125 | Maximum RUL cap (piecewise-linear model) |
+| `TRAIN_RATIO` | 0.70 | Training set proportion |
+| `VAL_RATIO` | 0.15 | Validation set proportion |
+| `TEST_RATIO` | 0.15 | Test set proportion |
+| `AE_EPOCHS` | 50 | Autoencoder training epochs |
+| `PRED_EPOCHS` | 50 | LSTM Predictor training epochs |
+| `PRED_FAILURE_HORIZON` | 30 | Failure prediction horizon (cycles) |
+| `AE_ANOMALY_THRESHOLD_SIGMA` | 3.0 | Anomaly threshold: mean + N * sigma |
+| `MAX_CONCURRENT_CREWS` | 3 | MILP crew capacity constraint |
+| `DOWNTIME_COST_PER_HOUR` | 10000 | Unplanned downtime cost (USD/hr) |
+| `MAINTENANCE_COST_BASE` | 2000 | Base maintenance job cost (USD) |
+| `SAFETY_RISK_THRESHOLD` | 0.7 | Mandatory service risk threshold |
+| `SCHEDULING_HORIZON` | 10 | Number of scheduling time slots |
+
+---
+
+## GPU Support
+
+GPU acceleration is automatic. The system detects CUDA at startup:
+
+```python
+# config.py
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+```
+
+XGBoost also uses GPU when available (`tree_method=hist`, `device=cuda`). Tested on NVIDIA RTX 3050 Ti Laptop GPU.
+
+To install GPU-enabled PyTorch:
+```bash
+make install-gpu
+# OR
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+```
+
+---
+
+## Bring Your Own Data
+
+This system is designed as a reusable baseline for production industrial use.
+
+### Expected Input Format
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `unit_id` | int | Machine/unit identifier |
+| `cycle` | int | Monotonically increasing time step per unit |
+| `sensor_1` ... `sensor_N` | float | Sensor readings |
+| `op_setting_1` ... `op_setting_3` | float | (Optional) Operating conditions |
+
+### Retrain Steps
+
+1. Update `config.py`: set `CMAPSS_COLUMNS`, `SENSORS_TO_DROP`, `ACTIVE_SENSORS` to match your data
+2. Place your data in `data/raw/` as space-separated text files (no header row)
+3. Run `make train` to retrain all models
+4. Run `make inference` to generate recommendations
+5. Run `make dashboard` to view results
+
+---
+
+## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
 | `ModuleNotFoundError` | Run `pip install -r requirements.txt` again |
-| `No data found` | Run `python scripts/train_all.py` first |
-| Dashboard blank | Make sure `run_pipeline.py` has been run |
-| Tests not found | Run `python -m pytest` from the project root |
+| `No data found` error | Run `python scripts/train_all.py` first |
+| Dashboard shows nothing | Run `python scripts/run_pipeline.py` to generate recommendations |
+| Tests not found | Run `python -m pytest` from the project root directory |
+| IMS download fails | Ensure `kagglehub` is installed: `pip install kagglehub` and Kaggle credentials are set |
+| CUDA out of memory | Set `device=cpu` in `config.py` or reduce batch size |
 
 ---
 
-## 🔧 Bring Your Own Data
+## Datasets
 
-This project is designed as a **baseline** for production use. You can retrain the entire pipeline on your own industrial sensor data.
+| Dataset | Source | Size | Description |
+|---------|--------|------|-------------|
+| NASA C-MAPSS FD001 | NASA Prognostics Center / Kaggle | ~2 MB | Turbofan engine run-to-failure simulation, 100 units, 21 sensors |
+| NASA IMS Bearing | NASA IMS Center / Kaggle | ~2 GB | Accelerated bearing degradation, 3 experiments, 4 accelerometers each |
 
-### Expected Data Format
-
-| Column | Description |
-|--------|-------------|
-| `unit_id` | Integer ID for each machine/unit |
-| `cycle` | Integer time step (monotonically increasing per unit) |
-| `sensor_1` ... `sensor_N` | Float sensor readings |
-
-Optional: `op_setting_1`, `op_setting_2`, `op_setting_3` (operating conditions).
-
-### Steps to Retrain
-
-1. **Edit `config.py`**: Update `CMAPSS_COLUMNS` to match your columns, adjust `SENSORS_TO_DROP` for constant sensors.
-2. **Place your data** in `data/raw/` as space-separated text (no header), or modify `src/data/download.py` to load your format.
-3. **Retrain**: `make train` (or `python scripts/train_all.py`)
-4. **Inference**: `make inference` (or `python scripts/run_pipeline.py`)
-5. **Dashboard**: `make dashboard` (or `streamlit run dashboard/app.py`)
-
-### Key Parameters (`config.py`)
-
-| Parameter | Default | What it controls |
-|-----------|---------|-----------------|
-| `SEQUENCE_LENGTH` | 30 | LSTM sliding window size |
-| `MAX_RUL` | 125 | Maximum RUL cap |
-| `AE_EPOCHS` | 50 | Autoencoder training epochs |
-| `PRED_FAILURE_HORIZON` | 30 | Cycles-to-failure threshold |
-| `XGB_PARAMS` | See config | Full XGBoost hyperparameters |
-| `MAX_CONCURRENT_CREWS` | 3 | MILP scheduling constraint |
+Both datasets are downloaded automatically by the training scripts. No manual download required.
 
 ---
 
-## 📄 License
+## License
 
-Developed for FSE 570 at Arizona State University.
+Developed for FSE 570 Data Science Capstone at Arizona State University.

@@ -7,8 +7,6 @@ to show which time steps contribute most to failure predictions.
 
 import os
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
@@ -48,11 +46,9 @@ class AttentionVisualizer:
         attention_weights : np.ndarray, shape (N, seq_len)
         predictions : np.ndarray, shape (N,)
         """
-        with torch.no_grad():
-            x_tensor = torch.FloatTensor(X).to(config.DEVICE)
-            proba, attn = self.model(x_tensor)
-
-        return attn.cpu().numpy(), proba.cpu().numpy()
+        # Use model's batched prediction path to avoid OOM on small GPUs.
+        proba, attn = self.model.predict_proba(torch.as_tensor(X, dtype=torch.float32))
+        return attn, proba
 
     def plot_attention_heatmap(self, X, unit_ids=None, n_samples=10,
                                save_path=None):

@@ -76,11 +76,24 @@ class LSTMPredictor(nn.Module):
         """Get failure probability for input sequences."""
         self.eval()
         self.to(config.DEVICE)
+        if not isinstance(x, torch.Tensor):
+            x = torch.as_tensor(x, dtype=torch.float32)
+
+        batch_size = config.PRED_BATCH_SIZE
+        all_proba = []
+        all_attn = []
         with torch.no_grad():
-            x = x.to(config.DEVICE)
-            logits, attn = self.forward(x)
-            proba = torch.sigmoid(logits)
-            return proba.cpu().numpy(), attn.cpu().numpy()
+            for start in range(0, len(x), batch_size):
+                batch_x = x[start:start + batch_size].to(config.DEVICE)
+                logits, attn = self.forward(batch_x)
+                proba = torch.sigmoid(logits)
+                all_proba.append(proba.cpu().numpy())
+                all_attn.append(attn.cpu().numpy())
+
+        if not all_proba:
+            return np.array([]), np.array([])
+
+        return np.concatenate(all_proba, axis=0), np.concatenate(all_attn, axis=0)
 
 
 class PredictorTrainer:

@@ -118,12 +118,19 @@ class LSTMAutoencoder(nn.Module):
         """
         self.eval()
         self.to(config.DEVICE)
+        if not isinstance(x, torch.Tensor):
+            x = torch.as_tensor(x, dtype=torch.float32)
+
+        batch_size = config.AE_BATCH_SIZE
+        scores = []
         with torch.no_grad():
-            x = x.to(config.DEVICE)
-            reconstruction = self.forward(x)
-            # MSE per sample (averaged across timesteps and features)
-            mse = ((x - reconstruction) ** 2).mean(dim=(1, 2))
-            return mse.cpu().numpy()
+            for start in range(0, len(x), batch_size):
+                batch_x = x[start:start + batch_size].to(config.DEVICE)
+                reconstruction = self.forward(batch_x)
+                mse = ((batch_x - reconstruction) ** 2).mean(dim=(1, 2))
+                scores.append(mse.cpu().numpy())
+
+        return np.concatenate(scores, axis=0) if scores else np.array([])
 
     def set_threshold(self, train_scores, sigma=None):
         """
