@@ -124,3 +124,19 @@ class TestXGBoostRUL:
 
         assert model.feature_importance is not None
         assert len(model.feature_importance) == X.shape[1]
+
+
+class TestReproducibility:
+    def test_training_is_deterministic(self, sample_sequences):
+        """Two forward passes with same seed must produce identical outputs."""
+        X, _, _ = sample_sequences
+
+        def get_output():
+            torch.manual_seed(config.RANDOM_SEED)
+            model = LSTMAutoencoder(input_dim=X.shape[2], seq_len=X.shape[1])
+            x = torch.FloatTensor(X[:5])
+            return model(x).detach().numpy()
+
+        out1 = get_output()
+        out2 = get_output()
+        np.testing.assert_array_equal(out1, out2)
