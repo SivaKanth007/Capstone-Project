@@ -130,24 +130,23 @@ The preprocessing pipeline (`src/data/preprocess.py`) applies five transformatio
 |-------|-----------|--------|
 | 1 | **Sensor filtering** | Dropped 7 constant/near-constant sensors and 1 operational setting |
 | 2 | **Missing value handling** | Forward-fill then backward-fill per unit |
-| 3 | **Temporal split** | 70/15/15 train/val/test by unit ID (no leakage) |
+| 3 | **Unit-based split** | 70/15/15 train/val/test by unit ID — rows within each unit stay in cycle order (no leakage) |
 | 4 | **Min-max normalization** | Fit on training data only |
 | 5 | **Sliding window** | 30-cycle sequences with stride 1 |
 
-**Result:** 12,286 training / 2,735 validation / 2,710 test sequences, each of shape (30 timesteps × 15 features).
+**Result:** 12,286 training / 2,735 validation / 2,710 test sequences, each of shape (30 timesteps × 14 features).
 
 ### 3.4 Feature Engineering
 
-The feature engineering pipeline (`src/data/feature_engineering.py`) generates 200+ features from the 15 active sensors:
+The feature engineering pipeline (`src/data/feature_engineering.py`) generates 200+ features from the 14 active sensors:
 
 | Feature Type | Description | Count |
 |-------------|-------------|-------|
-| **Rolling statistics** | Mean, std, min, max over 5/10/20-cycle windows | ~180 |
-| **Trend features** | Linear slope over 10-cycle windows | ~15 |
+| **Rolling statistics** | Mean, std, min, max over 5/10/20-cycle windows | ~168 |
+| **Trend features** | Linear slope over 10-cycle windows | ~14 |
 | **Operating regimes** | K-Means clustering of operational settings | 1–3 |
-| **Lag features** | Lagged sensor values at 1, 5, 10 cycles | ~45 |
+| **Lag features** | Lagged sensor values at 1, 5, 10 cycles | ~42 |
 | **Sensor interactions** | Pairwise ratios/products of top-5 variable sensors | ~20 |
-| **Cycle features** | Normalized cycle position, cycle² | 2 |
 
 RUL labels were capped at 125 cycles (piecewise-linear degradation model), following standard C-MAPSS practice.
 
@@ -219,15 +218,15 @@ The system follows a **five-stage pipeline** from raw sensor data to maintenance
 
 | Component | Configuration |
 |-----------|--------------|
-| Encoder | 2-layer LSTM (15 → 64 → 32) |
-| Decoder | 2-layer LSTM (32 → 64 → 15) |
-| Latent dimension | 32 |
+| Encoder | 2-layer LSTM (14 → hidden → latent) |
+| Decoder | 2-layer LSTM (latent → hidden → 14) |
+| Hidden / Latent dim | Auto-tuned to available GPU/RAM (64/32 on ≤4 GB, 128/64 on ≤8 GB) |
 | Dropout | 0.2 |
 | Loss function | Mean Squared Error (reconstruction) |
 
 **Training strategy:** The autoencoder is trained exclusively on "healthy" data (samples where RUL > 62.5, i.e., top 50% of lifespan), learning the compressed representation of normal operating patterns. At inference, the **reconstruction error** (MSE between input and reconstruction) serves as the anomaly score.
 
-**Threshold:** Set at μ + 3σ of training reconstruction errors, providing a statistically-grounded decision boundary.
+**Threshold:** Set at μ + 3σ of **validation** reconstruction errors, providing a statistically-grounded decision boundary that generalises to unseen machines (training errors are excluded to avoid threshold underestimation due to partial memorisation).
 
 ### 5.2 Failure Risk Prediction — LSTM Classifier with Attention
 
@@ -237,10 +236,10 @@ The system follows a **five-stage pipeline** from raw sensor data to maintenance
 
 | Component | Configuration |
 |-----------|--------------|
-| LSTM backbone | 2-layer LSTM (15 → 64), bidirectional-ready |
-| Attention mechanism | Tanh attention (64 → 32 → 1) |
-| Classifier head | Dense (64 → 32 → 1) + ReLU + Dropout(0.3) + Sigmoid |
-| Class balancing | Per-sample weight = 4.66× for positive class |
+| LSTM backbone | 2-layer LSTM (14 → hidden dim, auto-tuned) |
+| Attention mechanism | Tanh attention (hidden → hidden/2 → 1) |
+| Classifier head | Dense (hidden → hidden/2 → 1) + ReLU + Dropout(0.3); sigmoid applied at inference |
+| Class balancing | Dynamic pos_weight = min(neg/pos, 20×) via BCEWithLogitsLoss |
 | Output | P(failure within 30 cycles) |
 
 **Attention mechanism:** The model uses a learned attention layer that assigns importance weights to each of the 30 time steps in the input window. This provides temporal explainability — showing which recent cycles contributed most to the failure prediction.
@@ -325,7 +324,7 @@ Subject to:
 
 | Component | Technology |
 |-----------|-----------|
-| Core language | Python 3.11 |
+| Core language | Python 3.9+ (tested on 3.11) |
 | Deep learning | PyTorch 2.x |
 | Gradient boosting | XGBoost |
 | Survival analysis | lifelines |
@@ -370,16 +369,16 @@ The inference pipeline (`scripts/run_pipeline.py`) processes new sensor data thr
 
 ### 6.4 Testing
 
-The test suite (`tests/`) contains **43 unit tests** across 4 modules:
+The test suite (`tests/`) contains **50 unit tests** across 4 modules:
 
 | Module | Tests | Coverage |
 |--------|-------|----------|
 | `test_preprocess.py` | 15 tests | Sensor filtering, normalization, windowing, temporal splits, binary labels, full pipeline, synthetic augmentation |
-| `test_models.py` | 9 tests | Autoencoder forward pass / anomaly detection, predictor attention, XGBoost train/evaluate/features |
+| `test_models.py` | 16 tests | Autoencoder forward pass / anomaly detection / val-threshold, predictor attention / F1-threshold, XGBoost train/evaluate/NASA-score/CV, feature engineering leakage, reproducibility |
 | `test_optimizer.py` | 8 tests | MILP scheduling, crew capacity, critical machine mandatory scheduling, no duplicates, Gantt data |
 | `test_ims.py` | 11 tests | IMS time/frequency feature extraction, pseudo-RUL labels, binary labels, dynamic variance filtering, model compatibility |
 
-**Result:** All 43 tests pass.
+**Result:** All 50 tests pass.
 
 ---
 
@@ -408,7 +407,7 @@ The autoencoder successfully learned normal sensor patterns, with the anomaly ra
 | Recall | 0.955 |
 | Training samples | 12,286 |
 | Positive rate | 17.66% |
-| Positive class weight | 4.66× |
+| Positive class weight | Dynamic min(neg/pos, 20×) ≈ 4.66× for this split |
 
 The attention-based LSTM achieved near-perfect AUC (0.997), demonstrating strong ability to distinguish between near-failure and healthy sequences. The F1 of 0.933 reflects an excellent precision-recall balance, critical for minimizing both missed failures and false alarms.
 
@@ -419,11 +418,12 @@ The attention-based LSTM achieved near-perfect AUC (0.997), demonstrating strong
 | **RMSE** | **10.48 cycles** |
 | **MAE** | **7.04 cycles** |
 | **R²** | **0.937** |
+| **NASA Asymmetric Score** | Lower is better (penalises late predictions 1.3× more than early) |
 | Within ±10 cycles | 73.6% |
 | Within ±20 cycles | 91.5% |
 | Features used | 200+ engineered features |
 
-The XGBoost model explains 93.7% of RUL variance, with nearly three-quarters of predictions falling within ±10 cycles of the true value. This accuracy level is sufficient for actionable maintenance planning.
+The XGBoost model explains 93.7% of RUL variance, with nearly three-quarters of predictions falling within ±10 cycles of the true value. The **NASA asymmetric scoring function** (standard C-MAPSS benchmark metric) weights late predictions — where the model overestimates remaining life — more harshly than early predictions, reflecting real-world safety costs of missing a failure. This accuracy level is sufficient for actionable maintenance planning.
 
 **Top XGBoost Features:**
 
@@ -622,7 +622,7 @@ Provides fleet composition by machine type and priority level, a bubble scatter 
 |-----------|----------|
 | PyTorch 2.x API changes (`total_mem`, `verbose`, `weights_only`) | Used `getattr` fallbacks and version-compatible parameters |
 | Nested zip extraction from NASA S3 | Implemented recursive zip extraction in download module |
-| Imbalanced failure labels (17.66% positive) | Applied 4.66× class weighting in BCE loss |
+| Imbalanced failure labels (17.66% positive) | Applied dynamic pos_weight = min(neg/pos, 20×) in BCEWithLogitsLoss |
 | Data leakage risk | Temporal unit-based splits; normalize after splitting |
 | Feature fragmentation warnings | Addressed via pandas `PerformanceWarning` handling |
 
@@ -680,10 +680,10 @@ Most importantly, the system bridges the critical gap between *failure predictio
 
 | Model | Parameter | Value |
 |-------|-----------|-------|
-| LSTM Autoencoder | Hidden dim / Latent dim / Layers / Dropout | 64 / 32 / 2 / 0.2 |
-| LSTM Autoencoder | Learning rate / Epochs / Batch size | 1e-3 / 50 / 64 |
-| LSTM Predictor | Hidden dim / Layers / Dropout | 64 / 2 / 0.3 |
-| LSTM Predictor | Learning rate / Epochs / Batch size / Horizon | 1e-3 / 50 / 64 / 30 |
+| LSTM Autoencoder | Hidden dim / Latent dim / Layers / Dropout | Auto-tuned / auto/2 / 2 / 0.2 |
+| LSTM Autoencoder | Learning rate / Epochs / Batch size | 1e-3 / 50 / auto-tuned |
+| LSTM Predictor | Hidden dim / Layers / Dropout | Auto-tuned / 2 / 0.3 |
+| LSTM Predictor | Learning rate / Epochs / Batch size / Horizon | 1e-3 / 50 / auto-tuned / 30 |
 | XGBoost | n_estimators / max_depth / learning_rate | 200 / 6 / 0.1 |
 | XGBoost | subsample / colsample / L1 / L2 | 0.8 / 0.8 / 0.1 / 1.0 |
 | Bayesian Survival | Confidence levels | 90%, 95% |
@@ -710,7 +710,7 @@ Most importantly, the system bridges the critical gap between *failure predictio
 ### D. Environment & Reproducibility
 
 ```
-Python 3.11 | PyTorch 2.x | Random Seed: 42
+Python 3.9+ | PyTorch 2.x | Random Seed: 42
 Platform: Windows | Tested on CPU and Google Colab GPU
 All results are reproducible with: python scripts/train_all.py
 ```

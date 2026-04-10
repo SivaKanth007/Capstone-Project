@@ -125,7 +125,7 @@ python -m pytest
 make test
 ```
 
-All **43 unit tests** across 4 modules should pass.
+All **50 unit tests** across 4 modules should pass.
 
 ---
 
@@ -162,7 +162,7 @@ make train-ims
 | `make train-ims` | Train IMS bearing models |
 | `make inference` | Run inference and generate recommendations |
 | `make dashboard` | Launch Streamlit dashboard |
-| `make test` | Run all 43 unit tests |
+| `make test` | Run all 50 unit tests |
 | `make clean` | Remove caches and `__pycache__` directories |
 | `make help` | Show all available commands |
 
@@ -215,9 +215,9 @@ Capstone-Project/
 │   └── evaluation/
 │       └── simulation.py            # Monte Carlo maintenance policy comparison
 │
-├── tests/                           # Unit tests — 43 tests across 4 modules
+├── tests/                           # Unit tests — 50 tests across 4 modules
 │   ├── test_preprocess.py           # 15 tests: C-MAPSS preprocessing pipeline
-│   ├── test_models.py               # 9 tests: autoencoder, predictor, XGBoost, survival
+│   ├── test_models.py               # 16 tests: autoencoder, predictor, XGBoost, feature engineering, reproducibility
 │   ├── test_optimizer.py            # 8 tests: MILP scheduling, crew constraints
 │   └── test_ims.py                  # 11 tests: IMS feature extraction + model compatibility
 │

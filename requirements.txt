@@ -26,6 +26,9 @@ streamlit>=1.25.0
 # Utilities
 joblib>=1.2.0
 tqdm>=4.64.0
+psutil>=5.9.0
+ipywidgets>=8.0.0
+widgetsnbextension>=4.0.0
 
 # Testing
 pytest>=7.2.0

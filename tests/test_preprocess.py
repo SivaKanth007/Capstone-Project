@@ -151,11 +151,15 @@ class TestEqualSplit:
         val_units = val["unit_id"].nunique()
         test_units = test["unit_id"].nunique()
 
-        # With 10 units and ~1/3 each, expect 3-4 per split
-        assert train_units >= 2
-        assert val_units >= 2
-        assert test_units >= 2
+        # With 10 units and 70/15/15 split: train=7, val≈1-2, test≈1-2
+        # At minimum each split must have at least 1 unit and all units accounted for
+        assert train_units >= 1
+        assert val_units >= 1
+        assert test_units >= 1
         assert train_units + val_units + test_units == total_units
+        # Train should be the largest split (~70%)
+        assert train_units > val_units
+        assert train_units > test_units
 
 
 class TestSyntheticCMAPSSGenerator:

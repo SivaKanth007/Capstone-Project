@@ -537,7 +537,7 @@ def render_model_performance(data):
         st.markdown("""
         <div class="model-card">
             <div class="model-title">LSTM Temporal Autoencoder — Anomaly Detection</div>
-            <div class="model-metric">Architecture: <span>2-layer LSTM (15 → 64 → 32 latent → 64 → 15)</span></div>
+            <div class="model-metric">Architecture: <span>2-layer LSTM (14 → 64 → 32 latent → 64 → 14)</span></div>
             <div class="model-metric">Training Loss (final): <span>0.005457</span></div>
             <div class="model-metric">Validation Loss (best): <span>0.005405</span></div>
             <div class="model-metric">Anomaly Threshold (μ + 3σ): <span>0.006799</span></div>
@@ -564,13 +564,13 @@ def render_model_performance(data):
         st.markdown("""
         <div class="model-card">
             <div class="model-title">LSTM Classifier + Attention — Failure Prediction</div>
-            <div class="model-metric">Architecture: <span>2-layer LSTM (15 → 64) + Tanh Attention + Dense</span></div>
+            <div class="model-metric">Architecture: <span>2-layer LSTM (14 → 64) + Tanh Attention + Dense</span></div>
             <div class="model-metric">F1-Score: <span>0.933</span></div>
             <div class="model-metric">AUC-ROC: <span>0.997</span></div>
             <div class="model-metric">Precision: <span>0.912</span></div>
             <div class="model-metric">Recall: <span>0.955</span></div>
             <div class="model-metric">Training Samples: <span>12,286</span></div>
-            <div class="model-metric">Class Weight (positive): <span>4.66×</span></div>
+            <div class="model-metric">Class Weight (positive): <span>dynamic min(neg/pos, 20×)</span></div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -728,7 +728,6 @@ def render_explainability(data):
                 ("sensor_11_roll5_std", 0.0192),
                 ("sensor_4_roll10_mean", 0.0198),
                 ("sensor_11_roll10_mean", 0.0215),
-                ("cycle_normalized", 0.0220),
                 ("sensor_4_trend10", 0.0223),
                 ("sensor_11_trend10", 0.0228),
                 ("sensor_4_roll10_std", 0.0229),
@@ -741,7 +740,7 @@ def render_explainability(data):
             fig = px.bar(
                 fi_df, x="Importance", y="Feature",
                 orientation="h",
-                title="Top 15 Features by XGBoost Gain Importance",
+                title="Top 14 Features by XGBoost Gain Importance",
                 color="Importance",
                 color_continuous_scale="Blues",
             )
